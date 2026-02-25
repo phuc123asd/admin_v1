@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { Search, Eye, Package, Truck, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { Search, Package, Truck, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 
 // === Định nghĩa kiểu dữ liệu từ API ===
 interface ApiOrderItem {
@@ -25,7 +25,9 @@ interface ApiOrder {
   customer: ApiCustomer;
   items: ApiOrderItem[];
   total_price: number;
-  status: 'Đang Xử Lý' | 'Đang Vận Chuyển' | 'Đã Giao'; // Chỉ còn 3 trạng thái
+  status: 'Đang Xử Lý' | 'Đang Vận Chuyển' | 'Đã Giao';
+  payment_status?: 'pending' | 'paid' | 'failed';
+  payment_method?: 'cod' | 'momo' | 'vnpay';
   created_at: string;
 }
 
@@ -35,7 +37,9 @@ interface Order {
   customer: string;
   product: string;
   amount: number;
-  status: 'Đang Xử Lý' | 'Đang Vận Chuyển' | 'Đã Giao'; // Chỉ còn 3 trạng thái
+  status: 'Đang Xử Lý' | 'Đang Vận Chuyển' | 'Đã Giao';
+  payment_status: 'pending' | 'paid' | 'failed';
+  payment_method: 'cod' | 'momo' | 'vnpay';
   date: string;
 }
 
@@ -73,13 +77,14 @@ export function OrdersPage() {
         
         // Chuyển đổi dữ liệu từ API về cấu trúc đơn giản
         const transformedOrders: Order[] = response.data.map((apiOrder) => {
-          // Không cần ánh xạ trạng thái nữa, gán trực tiếp
           return {
             id: apiOrder.id,
             customer: `${apiOrder.customer.first_name} ${apiOrder.customer.last_name}`,
             product: apiOrder.items.length > 0 ? apiOrder.items[0].product.name : 'Nhiều sản phẩm',
             amount: apiOrder.total_price,
-            status: apiOrder.status, // Gán trực tiếp
+            status: apiOrder.status,
+            payment_status: apiOrder.payment_status || 'pending',
+            payment_method: apiOrder.payment_method || 'cod',
             date: new Date(apiOrder.created_at).toLocaleDateString('vi-VN')
           };
         });
@@ -186,8 +191,9 @@ export function OrdersPage() {
                     <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Sản phẩm</th>
                     <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Số tiền</th>
                     <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Trạng thái</th>
+                    <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Thanh toán</th>
+                    <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Phương thức</th>
                     <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Ngày</th>
-                    <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Hành động</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -195,6 +201,25 @@ export function OrdersPage() {
                     filteredOrders.map((order, index) => {
                       const status = statusConfig[order.status];
                       const StatusIcon = status.icon;
+                      // Hiển thị badge trạng thái thanh toán
+                      let paymentStatusBadge;
+                      switch (order.payment_status) {
+                        case 'paid':
+                          paymentStatusBadge = <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Đã thanh toán</span>;
+                          break;
+                        case 'failed':
+                          paymentStatusBadge = <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Thất bại</span>;
+                          break;
+                        default:
+                          paymentStatusBadge = <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Chưa thanh toán</span>;
+                      }
+                      // Hiển thị phương thức thanh toán
+                      let paymentMethodLabel = '';
+                      switch (order.payment_method) {
+                        case 'momo': paymentMethodLabel = 'MoMo'; break;
+                        case 'vnpay': paymentMethodLabel = 'VNPAY'; break;
+                        default: paymentMethodLabel = 'COD';
+                      }
                       return (
                         <motion.tr 
                           key={order.id} 
@@ -213,18 +238,15 @@ export function OrdersPage() {
                               {status.label}
                             </span>
                           </td>
+                          <td className="px-6 py-4">{paymentStatusBadge}</td>
+                          <td className="px-6 py-4">{paymentMethodLabel}</td>
                           <td className="px-6 py-4"><span className="text-gray-600">{order.date}</span></td>
-                          <td className="px-6 py-4">
-                            <button className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors" title="Xem chi tiết">
-                              <Eye size={18} />
-                            </button>
-                          </td>
                         </motion.tr>
                       );
                     })
                   ) : (
                     <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                         {statusFilter ? `Không có đơn hàng nào với trạng thái "${statusFilter}"` : 'Không có đơn hàng nào.'}
                       </td>
                     </tr>
