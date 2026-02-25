@@ -8,7 +8,7 @@ export function TopNav() {
   const getActiveSection = () => {
     if (location.pathname.startsWith('/products')) return 'products';
     if (location.pathname.startsWith('/users')) return 'users';
-    if (location.pathname === '/orders') return 'orders';
+    if (location.pathname.startsWith('/orders')) return 'orders';
     return 'chat';
   };
   

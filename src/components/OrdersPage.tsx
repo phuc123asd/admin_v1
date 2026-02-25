@@ -3,11 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { Search, Package, Truck, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Search, Package, Truck, CheckCircle, AlertCircle, Loader, Eye } from 'lucide-react';
 
 // === Định nghĩa kiểu dữ liệu từ API ===
 interface ApiOrderItem {
-  product: { id: string; name: string; image: string };
+  product: string | { id: string; name: string; image: string };
   quantity: number;
   price: number;
 }
@@ -77,10 +78,15 @@ export function OrdersPage() {
         
         // Chuyển đổi dữ liệu từ API về cấu trúc đơn giản
         const transformedOrders: Order[] = response.data.map((apiOrder) => {
+          const firstProduct = apiOrder.items.length > 0 ? apiOrder.items[0].product : null;
+          const firstProductLabel =
+            typeof firstProduct === 'string'
+              ? firstProduct
+              : firstProduct?.name || 'Nhiều sản phẩm';
           return {
             id: apiOrder.id,
             customer: `${apiOrder.customer.first_name} ${apiOrder.customer.last_name}`,
-            product: apiOrder.items.length > 0 ? apiOrder.items[0].product.name : 'Nhiều sản phẩm',
+            product: firstProductLabel,
             amount: apiOrder.total_price,
             status: apiOrder.status,
             payment_status: apiOrder.payment_status || 'pending',
@@ -194,6 +200,7 @@ export function OrdersPage() {
                     <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Thanh toán</th>
                     <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Phương thức</th>
                     <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Ngày</th>
+                    <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -241,12 +248,21 @@ export function OrdersPage() {
                           <td className="px-6 py-4">{paymentStatusBadge}</td>
                           <td className="px-6 py-4">{paymentMethodLabel}</td>
                           <td className="px-6 py-4"><span className="text-gray-600">{order.date}</span></td>
+                          <td className="px-6 py-4">
+                            <Link
+                              to={`/orders/${order.id}`}
+                              className="inline-flex items-center justify-center p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                              title="Xem chi tiết"
+                            >
+                              <Eye size={18} />
+                            </Link>
+                          </td>
                         </motion.tr>
                       );
                     })
                   ) : (
                     <tr>
-                      <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                         {statusFilter ? `Không có đơn hàng nào với trạng thái "${statusFilter}"` : 'Không có đơn hàng nào.'}
                       </td>
                     </tr>
