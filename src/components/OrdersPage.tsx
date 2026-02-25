@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Search, Package, Truck, CheckCircle, AlertCircle, Loader, Eye } from 'lucide-react';
+import { Search, Package, Truck, CheckCircle, AlertCircle, Loader, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // === Định nghĩa kiểu dữ liệu từ API ===
 interface ApiOrderItem {
@@ -63,12 +63,15 @@ const statusConfig = {
   }
 };
 
+const ORDERS_PER_PAGE = 10;
+
 export function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -116,6 +119,22 @@ export function OrdersPage() {
                            order.id.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesStatus && matchesSearch;
   });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ORDERS_PER_PAGE));
+  const paginatedOrders = filteredOrders.slice(
+    (currentPage - 1) * ORDERS_PER_PAGE,
+    currentPage * ORDERS_PER_PAGE
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const handleStatusFilterChange = (status: string | null) => {
     setStatusFilter(status);
@@ -205,7 +224,7 @@ export function OrdersPage() {
                 </thead>
                 <tbody>
                   {filteredOrders.length > 0 ? (
-                    filteredOrders.map((order, index) => {
+                    paginatedOrders.map((order, index) => {
                       const status = statusConfig[order.status];
                       const StatusIcon = status.icon;
                       // Hiển thị badge trạng thái thanh toán
@@ -271,6 +290,32 @@ export function OrdersPage() {
               </table>
             </div>
           </div>
+
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={16} />
+                Trước
+              </button>
+              <span className="text-sm text-gray-600 px-2">
+                Trang {currentPage}/{totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Sau
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

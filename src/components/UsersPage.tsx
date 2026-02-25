@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { Search, AlertCircle, Loader, Users, Mail, Phone, MapPin } from 'lucide-react';
+import { Search, AlertCircle, Loader, Users, Mail, Phone, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Interface cho dữ liệu người dùng
 interface User {
@@ -25,12 +25,15 @@ interface UsersResponse {
   count: number;
 }
 
+const USERS_PER_PAGE = 9;
+
 export function UsersPage() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Lấy dữ liệu người dùng từ API
   const fetchUsers = async () => {
@@ -51,26 +54,6 @@ export function UsersPage() {
     }
   };
 
-  // Lọc người dùng dựa trên từ khóa tìm kiếm
-  useEffect(() => {
-    if (searchTerm.trim() === '') {
-      // Nếu không có từ khóa, hiển thị tất cả người dùng
-      // (đã được set trong fetchUsers)
-    } else {
-      const lowercasedTerm = searchTerm.toLowerCase();
-      const filtered = users.filter(
-        user =>
-          user.first_name.toLowerCase().includes(lowercasedTerm) ||
-          user.last_name.toLowerCase().includes(lowercasedTerm) ||
-          user.email.toLowerCase().includes(lowercasedTerm) ||
-          user.city.toLowerCase().includes(lowercasedTerm) ||
-          user.province.toLowerCase().includes(lowercasedTerm)
-      );
-      // Cần một state riêng cho filtered users để hiển thị đúng
-      // Nhưng để đơn giản, tôi sẽ lọc trực tiếp trong render
-    }
-  }, [searchTerm, users]);
-
   // Lấy người dùng khi component được mount
   useEffect(() => {
     fetchUsers();
@@ -89,6 +72,22 @@ export function UsersPage() {
     user.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.province.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PER_PAGE));
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * USERS_PER_PAGE,
+    currentPage * USERS_PER_PAGE
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
@@ -133,9 +132,10 @@ export function UsersPage() {
             </div>
           </motion.div>
 
-          {users.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredUsers.map((user, index) => (
+          {filteredUsers.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {paginatedUsers.map((user, index) => (
                 <motion.div
                   key={user.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -183,15 +183,42 @@ export function UsersPage() {
                   </div>
                 </motion.div>
               ))}
-            </div>
+              </div>
+
+              {totalPages > 1 && (
+                <div className="mt-8 flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft size={16} />
+                    Trước
+                  </button>
+                  <span className="text-sm text-gray-600 px-2">
+                    Trang {currentPage}/{totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Sau
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-12">
               <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Không có người dùng nào
+                {users.length > 0 ? 'Không tìm thấy người dùng' : 'Không có người dùng nào'}
               </h3>
               <p className="text-gray-600">
-                Chưa có tài khoản nào được tạo.
+                {users.length > 0 ? 'Thử từ khóa khác để tìm kiếm.' : 'Chưa có tài khoản nào được tạo.'}
               </p>
             </div>
           )}

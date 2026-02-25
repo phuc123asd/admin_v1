@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { ArrowLeft, AlertCircle, Loader, Package, CreditCard, MapPin, User } from 'lucide-react';
@@ -18,6 +18,7 @@ interface ApiOrderItem {
 
 interface ApiCustomer {
   id: string;
+  _id?: string;
   email?: string;
   first_name?: string;
   last_name?: string;
@@ -26,7 +27,7 @@ interface ApiCustomer {
 
 interface ApiOrder {
   id: string;
-  customer: ApiCustomer;
+  customer: ApiCustomer | string;
   items: ApiOrderItem[];
   total_price: number;
   status: 'Đang Xử Lý' | 'Đang Vận Chuyển' | 'Đã Giao';
@@ -82,8 +83,16 @@ export function OrderDetailPage() {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const [order, setOrder] = useState<ApiOrder | null>(null);
+  const [customerProfile, setCustomerProfile] = useState<ApiCustomer | null>(null);
+  const [productPreviewMap, setProductPreviewMap] = useState<Record<string, ApiOrderProduct>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const resolvedCustomerId = useMemo(() => {
+    if (!order?.customer) return '';
+    if (typeof order.customer === 'string') return order.customer;
+    return order.customer.id || order.customer._id || '';
+  }, [order]);
 
   useEffect(() => {
     if (!orderId) return;
@@ -105,11 +114,72 @@ export function OrderDetailPage() {
     fetchOrderDetail();
   }, [orderId]);
 
-  const customerName = useMemo(() => {
-    if (!order?.customer) return 'Không xác định';
-    const fullName = `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim();
-    return fullName || order.customer.email || order.customer.id;
+  useEffect(() => {
+    const fetchCustomerProfile = async () => {
+      const customerId = resolvedCustomerId;
+      if (!customerId) return;
+
+      try {
+        const response = await axios.get<ApiCustomer>(
+          `${import.meta.env.VITE_API_URL}/customer/get_customer/${customerId}/`
+        );
+        setCustomerProfile(response.data);
+      } catch (err) {
+        console.error('Lỗi khi tải thông tin khách hàng:', err);
+        setCustomerProfile(null);
+      }
+    };
+
+    fetchCustomerProfile();
+  }, [resolvedCustomerId]);
+
+  useEffect(() => {
+    const fetchProductPreviews = async () => {
+      if (!order || !order.items.length) return;
+
+      const productIds = Array.from(
+        new Set(
+          order.items
+            .map((item) => (typeof item.product === 'string' ? item.product : item.product.id))
+            .filter(Boolean)
+        )
+      );
+
+      if (!productIds.length) return;
+
+      try {
+        const responses = await Promise.all(
+          productIds.map(async (productId) => {
+            const response = await axios.get(`${import.meta.env.VITE_API_URL}/products/${productId}/`);
+            const data = response.data || {};
+            return {
+              id: String(data.id || productId),
+              name: data.name || `Sản phẩm ${productId}`,
+              image: data.image || '',
+            } as ApiOrderProduct;
+          })
+        );
+
+        const nextMap: Record<string, ApiOrderProduct> = {};
+        responses.forEach((item) => {
+          nextMap[item.id] = item;
+        });
+        setProductPreviewMap(nextMap);
+      } catch (err) {
+        console.error('Lỗi khi tải preview sản phẩm:', err);
+      }
+    };
+
+    fetchProductPreviews();
   }, [order]);
+
+  const customerName = useMemo(() => {
+    const orderCustomer = typeof order?.customer === 'string' ? null : order?.customer;
+    const source = customerProfile || orderCustomer;
+    if (!source) return 'Không xác định';
+    const fullName = `${source.first_name || ''} ${source.last_name || ''}`.trim();
+    return fullName || source.email || source.id || source._id || 'Không xác định';
+  }, [customerProfile, order]);
 
   if (loading) {
     return (
@@ -174,17 +244,30 @@ export function OrderDetailPage() {
           <div className="divide-y divide-gray-100">
             {order.items.map((item) => (
               <div key={`${typeof item.product === 'string' ? item.product : item.product.id}-${item.price}`} className="px-6 py-4 flex gap-4">
+                {(() => {
+                  const productId = typeof item.product === 'string' ? item.product : item.product.id;
+                  const preview = productPreviewMap[productId];
+                  const imageUrl =
+                    preview?.image ||
+                    (typeof item.product === 'string' ? '' : item.product.image) ||
+                    'https://placehold.co/96x96?text=No+Image';
+                  const productName =
+                    preview?.name ||
+                    (typeof item.product === 'string' ? `Sản phẩm ${productId}` : item.product.name);
+
+                  return (
+                    <>
                 <img
-                  src={typeof item.product === 'string' ? 'https://placehold.co/96x96?text=No+Image' : (item.product.image || 'https://placehold.co/96x96?text=No+Image')}
-                  alt={typeof item.product === 'string' ? item.product : item.product.name}
+                  src={imageUrl}
+                  alt={productName}
                   className="w-20 h-20 rounded-xl object-cover border border-gray-200 bg-gray-50"
                 />
                 <div className="flex-1">
                   <p className="font-medium text-gray-900">
-                    {typeof item.product === 'string' ? `Sản phẩm ${item.product}` : item.product.name}
+                    {productName}
                   </p>
                   <p className="text-sm text-gray-500 mt-1">
-                    Mã SP: {typeof item.product === 'string' ? item.product : item.product.id}
+                    Mã SP: {productId}
                   </p>
                   <div className="mt-2 text-sm text-gray-700">
                     <span>Số lượng: <strong>{item.quantity}</strong></span>
@@ -192,6 +275,9 @@ export function OrderDetailPage() {
                     <span>Đơn giá: <strong>₫{item.price.toLocaleString()}</strong></span>
                   </div>
                 </div>
+                    </>
+                  );
+                })()}
                 <div className="text-right">
                   <p className="text-sm text-gray-500">Thành tiền</p>
                   <p className="font-semibold text-gray-900">₫{(item.price * item.quantity).toLocaleString()}</p>
@@ -215,8 +301,17 @@ export function OrderDetailPage() {
             </h3>
             <div className="space-y-2 text-sm">
               <p><span className="text-gray-500">Họ tên:</span> <span className="font-medium text-gray-900">{customerName}</span></p>
-              <p><span className="text-gray-500">Email:</span> <span className="text-gray-900">{order.customer?.email || 'N/A'}</span></p>
-              <p><span className="text-gray-500">Điện thoại:</span> <span className="text-gray-900">{order.phone || order.customer?.phone || 'N/A'}</span></p>
+              <p><span className="text-gray-500">Email:</span> <span className="text-gray-900">{customerProfile?.email || (typeof order.customer === 'string' ? '' : (order.customer?.email || '')) || 'N/A'}</span></p>
+              <p><span className="text-gray-500">Điện thoại:</span> <span className="text-gray-900">{customerProfile?.phone || order.phone || (typeof order.customer === 'string' ? '' : (order.customer?.phone || '')) || 'N/A'}</span></p>
+              <p><span className="text-gray-500">Mã KH:</span> <span className="text-gray-900">{customerProfile?.id || customerProfile?._id || resolvedCustomerId || 'N/A'}</span></p>
+              {(customerProfile?.id || customerProfile?._id || resolvedCustomerId) && (
+                <Link
+                  to={`/users/${customerProfile?.id || customerProfile?._id || resolvedCustomerId}`}
+                  className="inline-flex items-center px-3 py-1.5 mt-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
+                >
+                  Xem trang người dùng
+                </Link>
+              )}
             </div>
           </div>
 

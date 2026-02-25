@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { Search, AlertCircle, Loader, Package, Copy, Check } from 'lucide-react'; // <-- Thêm Copy và Check
+import { Search, AlertCircle, Loader, Package, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -17,14 +17,15 @@ interface Product {
   rating?: number;
 }
 
+const PRODUCTS_PER_PAGE = 9;
+
 export function ProductsPage() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // --- THÊM STATE ĐỂ QUẢN LÝ VIỆC SAO CHÉP ID ---
+  const [currentPage, setCurrentPage] = useState(1);
   const [copiedIds, setCopiedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -58,6 +59,22 @@ export function ProductsPage() {
   const filteredProducts = products.filter(product => 
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * PRODUCTS_PER_PAGE,
+    currentPage * PRODUCTS_PER_PAGE
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const handleProductClick = (productId: string) => {
     navigate(`/products/${productId}`);
@@ -169,9 +186,10 @@ export function ProductsPage() {
             </div>
           </motion.div>
 
-          {products.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProducts.map((product, index) => (
+          {filteredProducts.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {paginatedProducts.map((product, index) => (
                 <motion.div 
                   key={product.id} 
                   initial={{ opacity: 0, y: 20 }} 
@@ -216,12 +234,43 @@ export function ProductsPage() {
                   </div>
                 </motion.div>
               ))}
-            </div>
+              </div>
+
+              {totalPages > 1 && (
+                <div className="mt-8 flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft size={16} />
+                    Trước
+                  </button>
+                  <span className="text-sm text-gray-600 px-2">
+                    Trang {currentPage}/{totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Sau
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-12">
               <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Không có sản phẩm nào</h3>
-              <p className="text-gray-600">Kho hàng của bạn hiện đang trống.</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {products.length > 0 ? 'Không tìm thấy sản phẩm' : 'Không có sản phẩm nào'}
+              </h3>
+              <p className="text-gray-600">
+                {products.length > 0 ? 'Thử từ khóa khác để tìm lại sản phẩm.' : 'Kho hàng của bạn hiện đang trống.'}
+              </p>
             </div>
           )}
         </>
