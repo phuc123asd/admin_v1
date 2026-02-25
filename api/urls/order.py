@@ -2,7 +2,7 @@
 from django.urls import path
 from api.views.order import *
 from api.views.momo import create_momo_payment, momo_ipn, get_payment_status, confirm_momo_payment
-
+from api.views.vnpay import create_vnpay_payment, confirm_vnpay_payment
 urlpatterns = [
     path('create/', create_order, name='create_order'), 
     path('customer/<str:customer_id>/', get_orders_by_customer, name='get_orders_by_customer'),
@@ -14,4 +14,8 @@ urlpatterns = [
     path('momo/confirm-payment/', confirm_momo_payment, name='confirm_momo_payment'),
     path('momo/ipn/', momo_ipn, name='momo_ipn'),
     path('momo/payment-status/<str:order_id>/', get_payment_status, name='get_payment_status'),
+    # VNPAY payment
+    path('vnpay/create-payment/', create_vnpay_payment, name='create_vnpay_payment'),
+    path('vnpay/confirm-payment/', confirm_vnpay_payment, name='confirm_vnpay_payment'),
+
 ]

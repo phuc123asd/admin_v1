@@ -12,7 +12,7 @@ class OrderItem(EmbeddedDocument):
 
 class Order(Document):
     STATUS_CHOICES = ['Đang Xử Lý', 'Đang Vận Chuyển', 'Đã Giao']
-    PAYMENT_METHOD_CHOICES = ['cod', 'momo', 'qr']
+    PAYMENT_METHOD_CHOICES = ['cod', 'momo', 'vnpay']
     PAYMENT_STATUS_CHOICES = ['pending', 'paid', 'failed']
     
     customer = fields.ReferenceField(Customer, required=True)
