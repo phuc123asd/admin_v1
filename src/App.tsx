@@ -8,6 +8,7 @@ import { OrdersPage } from './components/OrdersPage';
 import { OrderDetailPage } from './components/OrderDetailPage';
 import { UsersPage } from './components/UsersPage';
 import { UserDetailPage } from './components/UserDetailPage';
+import { ContactPage } from './components/ContactPage';
 
 export function App() {
   return (
@@ -17,6 +18,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<ChatPage />} />
           <Route path="/chat" element={<ChatPage />} />
+          <Route path="/contact" element={<ContactPage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/products/:productId" element={<ProductDetailPage />} />
           <Route path="/orders" element={<OrdersPage />} />

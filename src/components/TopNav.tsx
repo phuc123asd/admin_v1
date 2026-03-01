@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { MessageSquare, BarChart3, Package, ShoppingCart, Users } from 'lucide-react';
+import { MessageSquare, BarChart3, Package, ShoppingCart, Users, Mail } from 'lucide-react';
 
 export function TopNav() {
   const location = useLocation();
@@ -9,6 +9,7 @@ export function TopNav() {
     if (location.pathname.startsWith('/products')) return 'products';
     if (location.pathname.startsWith('/users')) return 'users';
     if (location.pathname.startsWith('/orders')) return 'orders';
+    if (location.pathname.startsWith('/contact')) return 'contact';
     return 'chat';
   };
   
@@ -57,7 +58,7 @@ export function TopNav() {
                 Orders
               </Link>
               <Link
-                to="/users" // <-- Thêm Link mới
+                to="/users"
                 className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
                   activeSection === 'users'
                     ? 'border-blue-500 text-gray-900'
@@ -66,6 +67,17 @@ export function TopNav() {
               >
                 <Users className="w-4 h-4 mr-2" />
                 Users
+              </Link>
+              <Link
+                to="/contact"
+                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                  activeSection === 'contact'
+                    ? 'border-blue-500 text-gray-900'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Phản Hồi
               </Link>
             </div>
           </div>

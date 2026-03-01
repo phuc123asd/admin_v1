@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Package, ShoppingCart, Bot, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, Bot, Menu, X, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 interface SidebarProps {
   activeSection: string;
@@ -19,6 +19,10 @@ const navItems = [{
   id: 'orders',
   label: 'Đơn hàng',
   icon: ShoppingCart
+}, {
+  id: 'contact',
+  label: 'Phản Hồi Khách',
+  icon: MessageSquare
 }, {
   id: 'ai-assistant',
   label: 'AI Assistant',
