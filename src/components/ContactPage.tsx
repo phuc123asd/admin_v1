@@ -22,7 +22,11 @@ interface ContactResponse {
 
 const CONTACTS_PER_PAGE = 10;
 
-export function ContactPage() {
+interface ContactPageProps {
+  isDark: boolean;
+}
+
+export function ContactPage({ isDark }: ContactPageProps) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -169,7 +173,9 @@ export function ContactPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
+    <div className={`min-h-screen p-8 ${
+      isDark ? 'bg-gradient-to-br from-slate-950 to-slate-900' : 'bg-gradient-to-br from-slate-50 to-slate-100'
+    }`}>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
@@ -178,29 +184,35 @@ export function ContactPage() {
               <MessageSquare size={24} />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Quản Lý Phản Hồi Khách Hàng</h1>
-              <p className="text-gray-600 mt-1">Tổng cộng {contacts.length} tin nhắn</p>
+              <h1 className={`text-3xl font-bold ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>Quản Lý Phản Hồi Khách Hàng</h1>
+              <p className={`${isDark ? 'text-slate-400' : 'text-gray-600'} mt-1`}>Tổng cộng {contacts.length} tin nhắn</p>
             </div>
           </div>
         </motion.div>
 
         {error && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 flex items-center gap-3">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`mb-6 p-4 rounded-lg border flex items-center gap-3 ${
+            isDark ? 'bg-red-950/30 border-red-800' : 'bg-red-50 border-red-200'
+          }`}>
             <AlertCircle className="text-red-600" />
-            <span className="text-red-800">{error}</span>
+            <span className={isDark ? 'text-red-300' : 'text-red-800'}>{error}</span>
           </motion.div>
         )}
 
         {/* Search */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
           <div className="relative">
-            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+            <Search className={`absolute left-3 top-3 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} size={20} />
             <input
               type="text"
               placeholder="Tìm kiếm theo tên, email, hoặc tiêu đề..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full pl-10 pr-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isDark
+                  ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder:text-slate-500'
+                  : 'bg-white border-gray-300 text-gray-900'
+              }`}
             />
           </div>
         </motion.div>
@@ -208,9 +220,11 @@ export function ContactPage() {
         {/* Contacts List */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
           {paginatedContacts.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-              <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg">Không có tin nhắn nào</p>
+            <div className={`text-center py-12 rounded-lg border ${
+              isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'
+            }`}>
+              <MessageSquare className={`w-12 h-12 mx-auto mb-4 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
+              <p className={`${isDark ? 'text-slate-400' : 'text-gray-500'} text-lg`}>Không có tin nhắn nào</p>
             </div>
           ) : (
             paginatedContacts.map((contact, index) => (
@@ -221,15 +235,23 @@ export function ContactPage() {
                 transition={{ delay: index * 0.05 }}
                 className={`p-4 rounded-lg border transition-all cursor-pointer ${
                   contact.is_read
-                    ? 'bg-white border-gray-200 hover:border-blue-300'
-                    : 'bg-blue-50 border-blue-300 hover:border-blue-400'
+                    ? isDark
+                      ? 'bg-slate-900 border-slate-700 hover:border-blue-500'
+                      : 'bg-white border-gray-200 hover:border-blue-300'
+                    : isDark
+                      ? 'bg-blue-950/30 border-blue-700 hover:border-blue-500'
+                      : 'bg-blue-50 border-blue-300 hover:border-blue-400'
                 }`}
                 onClick={() => handleViewDetail(contact)}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className={`font-semibold ${!contact.is_read ? 'text-blue-900' : 'text-gray-900'}`}>
+                      <h3 className={`font-semibold ${
+                        !contact.is_read
+                          ? isDark ? 'text-blue-300' : 'text-blue-900'
+                          : isDark ? 'text-slate-100' : 'text-gray-900'
+                      }`}>
                         {contact.name}
                       </h3>
                       {!contact.is_read && (
@@ -238,25 +260,27 @@ export function ContactPage() {
                         </span>
                       )}
                       {contact.reply && (
-                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          isDark ? 'bg-emerald-950/50 text-emerald-300' : 'bg-green-100 text-green-800'
+                        }`}>
                           Đã phản hồi
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-600 mb-2 flex items-center gap-2">
+                    <p className={`text-sm mb-2 flex items-center gap-2 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
                       <Mail size={16} /> {contact.email}
                     </p>
-                    <p className="font-medium text-gray-800 mb-2">{contact.subject}</p>
-                    <p className="text-sm text-gray-600 line-clamp-2">
+                    <p className={`font-medium mb-2 ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>{contact.subject}</p>
+                    <p className={`text-sm line-clamp-2 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
                       {contact.message || 'Không có nội dung'}
                     </p>
-                    <p className="text-xs text-gray-500 mt-2 flex items-center gap-2">
+                    <p className={`text-xs mt-2 flex items-center gap-2 ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>
                       <Calendar size={14} /> {formatDate(contact.created_at)}
                     </p>
                   </div>
                   <div className="ml-4">
                     {contact.is_read ? (
-                      <Eye className="text-gray-400" size={20} />
+                      <Eye className={isDark ? 'text-slate-500' : 'text-gray-400'} size={20} />
                     ) : (
                       <EyeOff className="text-blue-600" size={20} />
                     )}
@@ -273,7 +297,9 @@ export function ContactPage() {
             <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              className={`p-2 rounded-lg border disabled:opacity-50 disabled:cursor-not-allowed ${
+                isDark ? 'border-slate-700 hover:bg-slate-800' : 'border-gray-300 hover:bg-gray-50'
+              }`}
             >
               ← Trước
             </button>
@@ -284,7 +310,7 @@ export function ContactPage() {
                 className={`px-4 py-2 rounded-lg ${
                   currentPage === page
                     ? 'bg-blue-600 text-white'
-                    : 'border border-gray-300 hover:bg-gray-50'
+                    : isDark ? 'border border-slate-700 hover:bg-slate-800' : 'border border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 {page}
@@ -293,7 +319,9 @@ export function ContactPage() {
             <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              className={`p-2 rounded-lg border disabled:opacity-50 disabled:cursor-not-allowed ${
+                isDark ? 'border-slate-700 hover:bg-slate-800' : 'border-gray-300 hover:bg-gray-50'
+              }`}
             >
               Sau →
             </button>
@@ -303,18 +331,22 @@ export function ContactPage() {
 
       {/* Detail Modal */}
       {showDetailModal && selectedContact && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            className={`rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto ${
+              isDark ? 'bg-slate-900 border border-slate-700' : 'bg-white'
+            }`}
           >
             {/* Modal Header */}
-            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Chi Tiết Tin Nhắn</h2>
+            <div className={`p-6 border-b flex items-center justify-between ${
+              isDark ? 'border-slate-700' : 'border-gray-200'
+            }`}>
+              <h2 className={`text-2xl font-bold ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>Chi Tiết Tin Nhắn</h2>
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
+                className={`text-2xl ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-500 hover:text-gray-700'}`}
               >
                 ×
               </button>
@@ -325,44 +357,52 @@ export function ContactPage() {
               {/* Contact Info */}
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Tên</label>
-                  <p className="text-lg font-semibold text-gray-900">{selectedContact.name}</p>
+                  <label className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>Tên</label>
+                  <p className={`text-lg font-semibold ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>{selectedContact.name}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Email</label>
-                  <p className="text-gray-700">{selectedContact.email}</p>
+                  <label className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>Email</label>
+                  <p className={isDark ? 'text-slate-200' : 'text-gray-700'}>{selectedContact.email}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Tiêu Đề</label>
-                  <p className="text-gray-700">{selectedContact.subject}</p>
+                  <label className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>Tiêu Đề</label>
+                  <p className={isDark ? 'text-slate-200' : 'text-gray-700'}>{selectedContact.subject}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Nội Dung</label>
-                  <div className="mt-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-gray-700 whitespace-pre-wrap">{selectedContact.message}</p>
+                  <label className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>Nội Dung</label>
+                  <div className={`mt-2 p-4 rounded-lg border ${
+                    isDark ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-200'
+                  }`}>
+                    <p className={`${isDark ? 'text-slate-200' : 'text-gray-700'} whitespace-pre-wrap`}>{selectedContact.message}</p>
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Ngày Gửi</label>
-                  <p className="text-gray-700">{formatDate(selectedContact.created_at)}</p>
+                  <label className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>Ngày Gửi</label>
+                  <p className={isDark ? 'text-slate-200' : 'text-gray-700'}>{formatDate(selectedContact.created_at)}</p>
                 </div>
               </div>
 
               {/* Reply Section */}
               {selectedContact.reply ? (
-                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                  <h4 className="font-semibold text-green-900 mb-2">Phản Hồi Từ Admin</h4>
-                  <p className="text-green-800 whitespace-pre-wrap">{selectedContact.reply}</p>
+                <div className={`p-4 rounded-lg border ${
+                  isDark ? 'bg-emerald-950/30 border-emerald-800' : 'bg-green-50 border-green-200'
+                }`}>
+                  <h4 className={`font-semibold mb-2 ${isDark ? 'text-emerald-300' : 'text-green-900'}`}>Phản Hồi Từ Admin</h4>
+                  <p className={`${isDark ? 'text-emerald-200' : 'text-green-800'} whitespace-pre-wrap`}>{selectedContact.reply}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <label className="text-sm font-medium text-gray-600">Gửi Phản Hồi</label>
+                  <label className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>Gửi Phản Hồi</label>
                   <textarea
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
                     placeholder="Nhập phản hồi..."
                     rows={4}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      isDark
+                        ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-500'
+                        : 'border-gray-300 text-gray-900'
+                    }`}
                   />
                   <div className="flex items-center gap-2">
                     <input
@@ -370,9 +410,11 @@ export function ContactPage() {
                       id="sendEmail"
                       checked={sendEmail}
                       onChange={(e) => setSendEmail(e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className={`w-4 h-4 rounded text-blue-600 focus:ring-blue-500 ${
+                        isDark ? 'border-slate-600 bg-slate-800' : 'border-gray-300'
+                      }`}
                     />
-                    <label htmlFor="sendEmail" className="text-sm text-gray-700">
+                    <label htmlFor="sendEmail" className={`text-sm ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
                       Gửi phản hồi qua email cho khách hàng
                     </label>
                   </div>
@@ -398,7 +440,7 @@ export function ContactPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 border-t border-gray-200 flex gap-3">
+            <div className={`p-6 border-t flex gap-3 ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
               <button
                 onClick={() => handleDeleteContact(selectedContact.id)}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
@@ -408,7 +450,9 @@ export function ContactPage() {
               </button>
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300"
+                className={`flex-1 px-4 py-2 rounded-lg ${
+                  isDark ? 'bg-slate-700 text-slate-100 hover:bg-slate-600' : 'bg-gray-200 text-gray-900 hover:bg-gray-300'
+                }`}
               >
                 Đóng
               </button>
