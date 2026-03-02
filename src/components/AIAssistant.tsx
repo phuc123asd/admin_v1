@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Bot, User, Sparkles } from 'lucide-react';
 interface Message {
@@ -34,27 +34,41 @@ export function AIAssistant() {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const isSendingRef = useRef(false);
+  const lastSentRef = useRef<{ text: string; time: number } | null>(null);
   const handleSend = () => {
-    if (!inputValue.trim()) return;
+    if (isSendingRef.current || isTyping) return;
+    const text = inputValue.trim();
+    if (!text) return;
+    const normalized = text.replace(/\s+/g, ' ');
+    const now = Date.now();
+    if (lastSentRef.current && lastSentRef.current.text === normalized && now - lastSentRef.current.time < 900) {
+      return;
+    }
+    isSendingRef.current = true;
+    lastSentRef.current = { text: normalized, time: now };
+
+    const userMessageId = Date.now();
     const userMessage: Message = {
-      id: messages.length + 1,
-      text: inputValue,
+      id: userMessageId,
+      text,
       sender: 'user',
       timestamp: new Date()
     };
-    setMessages([...messages, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsTyping(true);
     // Simulate AI response
     setTimeout(() => {
       const aiMessage: Message = {
-        id: messages.length + 2,
+        id: userMessageId + 1,
         text: 'Tôi đã hiểu câu hỏi của bạn. Dựa trên dữ liệu hiện tại, tôi có thể giúp bạn phân tích và đưa ra gợi ý tối ưu cho vấn đề này.',
         sender: 'ai',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, aiMessage]);
       setIsTyping(false);
+      isSendingRef.current = false;
     }, 1500);
   };
   return <div className="p-8 h-full flex flex-col">
@@ -140,12 +154,26 @@ export function AIAssistant() {
 
         <div className="border-t border-slate-200 p-4">
           <div className="flex gap-3">
-            <input type="text" value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSend()} placeholder="Nhập câu hỏi của bạn..." className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            <input
+              type="text"
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              onKeyDown={e => {
+                if (e.key !== 'Enter') return;
+                if (e.repeat) return;
+                const native = e.nativeEvent as KeyboardEvent;
+                if (native.isComposing || native.keyCode === 229) return;
+                e.preventDefault();
+                handleSend();
+              }}
+              placeholder="Nhập câu hỏi của bạn..."
+              className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
             <motion.button whileHover={{
             scale: 1.05
           }} whileTap={{
             scale: 0.95
-          }} onClick={handleSend} className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+          }} onClick={handleSend} disabled={isTyping} className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 rounded-xl shadow-lg hover:shadow-xl transition-shadow disabled:opacity-60 disabled:cursor-not-allowed">
               <Send size={20} />
             </motion.button>
           </div>

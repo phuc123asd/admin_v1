@@ -31,6 +31,8 @@ export function ChatPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isSendingRef = useRef(false);
+  const lastSentRef = useRef<{ text: string; time: number } | null>(null);
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -59,7 +61,22 @@ export function ChatPage() {
   };
 
   const sendUserMessage = async () => {
+    if (isSendingRef.current || isTyping) return;
     if (!inputValue.trim() && selectedImages.length === 0) return;
+    const normalized = inputValue.trim().replace(/\s+/g, ' ');
+    const now = Date.now();
+    if (
+      selectedImages.length === 0 &&
+      lastSentRef.current &&
+      lastSentRef.current.text === normalized &&
+      now - lastSentRef.current.time < 900
+    ) {
+      return;
+    }
+    isSendingRef.current = true;
+    if (selectedImages.length === 0) {
+      lastSentRef.current = { text: normalized, time: now };
+    }
 
     // Tạo URL ảnh để hiển thị (nếu có)
     const imageUrls = selectedImages.length > 0 
@@ -135,6 +152,7 @@ export function ChatPage() {
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsTyping(false);
+      isSendingRef.current = false;
     }
   };
 
@@ -371,6 +389,9 @@ export function ChatPage() {
               onChange={e => setInputValue(e.target.value)}
               onKeyDown={e => {
                 if (e.key === 'Enter' && !e.shiftKey) {
+                  if (e.repeat) return;
+                  const native = e.nativeEvent as KeyboardEvent;
+                  if (native.isComposing || native.keyCode === 229) return;
                   e.preventDefault();
                   sendUserMessage();
                 }
@@ -383,7 +404,7 @@ export function ChatPage() {
 
             <button
               onClick={sendUserMessage}
-              disabled={!inputValue.trim() && selectedImages.length === 0}
+              disabled={isTyping || (!inputValue.trim() && selectedImages.length === 0)}
               className="p-3 rounded-full bg-blue-600 text-white disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors shadow-md"
             >
               <Send size={20} />
