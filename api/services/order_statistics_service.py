@@ -134,14 +134,21 @@ class OrderStatisticsService:
             # Ném lại exception để các hàm gọi có thể xử lý
             raise
             
-    def get_revenue_statistics(self, days=30):
+    def get_revenue_statistics(self, days=30, start_date=None, end_date=None):
         """
-        Thống kê doanh thu theo khoảng thời gian
+        Thống kê doanh thu theo khoảng thời gian tùy chỉnh
         """
-        print(f"[STATS_SERVICE] Bắt đầu lấy thống kê doanh thu trong {days} ngày")
+        print(f"[STATS_SERVICE] Bắt đầu lấy thống kê doanh thu (days={days}, start={start_date}, end={end_date})")
         try:
-            end_date = self.today
-            start_date = end_date - timedelta(days=days)
+            if not end_date:
+                end_date = self.today
+            if not start_date:
+                start_date = end_date - timedelta(days=days)
+            
+            # Tính toán số ngày thực tế để so sánh kỳ này vs kỳ trước
+            actual_days = (end_date - start_date).days
+            if actual_days <= 0: actual_days = 1
+
             print(f"[STATS_SERVICE] Khoảng thời gian: từ {start_date} đến {end_date}")
             
             # Doanh thu theo ngày
@@ -159,13 +166,16 @@ class OrderStatisticsService:
             # Chuyển đổi kết quả sang định dạng mong muốn
             daily_revenue = {}
             daily_orders = {}
+            daily_chart_data = []
             for item in daily_data:
                 revenue_value = item['revenue']
                 try:
-                    daily_revenue[item['_id']] = float(revenue_value.to_decimal())
+                    rev_float = float(revenue_value.to_decimal())
                 except AttributeError:
-                    daily_revenue[item['_id']] = float(revenue_value)
+                    rev_float = float(revenue_value)
+                daily_revenue[item['_id']] = rev_float
                 daily_orders[item['_id']] = item['count']
+                daily_chart_data.append({"date": item['_id'], "revenue": rev_float, "orders": item['count']})
             
             # Doanh thu theo tuần
             weekly_pipeline = [
@@ -212,7 +222,7 @@ class OrderStatisticsService:
                 monthly_orders[item['_id']] = item['count']
             
             # So sánh với kỳ trước
-            previous_start_date = start_date - timedelta(days=days)
+            previous_start_date = start_date - timedelta(days=actual_days)
             current_total = sum(daily_revenue.values())
             
             previous_pipeline = [
@@ -234,7 +244,7 @@ class OrderStatisticsService:
             growth_rate = round((current_total - previous_total) / previous_total * 100, 2) if previous_total > 0 else 0
             
             result = {
-                'period': f"{days} ngày",
+                'period': f"Từ {start_date.strftime('%Y-%m-%d')} đến {end_date.strftime('%Y-%m-%d')}",
                 'current_period': {
                     'total_revenue': current_total,
                     'total_orders': len(daily_data),
@@ -248,6 +258,7 @@ class OrderStatisticsService:
                     ]))),
                     'avg_order_value': 0  # Có thể tính toán nếu cần
                 },
+                'chart_data': daily_chart_data,
                 'growth_rate': growth_rate,
                 'daily': {
                     'revenue': daily_revenue,

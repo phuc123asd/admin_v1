@@ -159,7 +159,15 @@ ADMIN_TOOLS = [
                     },
                     "days": {
                         "type": "number",
-                        "description": "Số ngày để lọc (mặc định 30)"
+                        "description": "Số ngày để lọc ngược về trước (Ví dụ: 7, 30). Thường dùng nếu không có ngày bắt đầu và kết thúc cụ thể."
+                    },
+                    "startDate": {
+                        "type": "string",
+                        "description": "Ngày bắt đầu định dạng YYYY-MM-DD (Ví dụ: '2023-10-01'). Nếu user hỏi 'hôm nay', 'tháng trước', AI sẽ tự tính toán ra ngày này."
+                    },
+                    "endDate": {
+                        "type": "string",
+                        "description": "Ngày kết thúc định dạng YYYY-MM-DD (Ví dụ: '2023-10-31'). Nếu user hỏi 'hôm nay', AI sẽ tự tính toán ra ngày hôm nay."
                     }
                 },
                 "required": ["type"]
@@ -280,6 +288,48 @@ ADMIN_TOOLS = [
                     }
                 },
                 "required": ["product_id", "in_stock"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "draw_chart",
+            "description": "Vẽ biểu đồ (Chart) để trực quan hóa số liệu trực tiếp vào giao diện khung chat. RẤT QUAN TRỌNG: Bạn KHÔNG ĐƯỢC tự bịa ra số liệu giả. Nếu người dùng yêu cầu vẽ biểu đồ thống kê, BẠN NHẤT ĐỊNH PHẢI gọi tool `get_statistics` trước để lấy dữ liệu THẬT, sau đó mới dùng dữ liệu đó truyền vào hàm `draw_chart` này.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Tiêu đề của biểu đồ"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": ["bar", "line", "pie"],
+                        "description": "Loại biểu đồ muốn vẽ (bar: Cột, line: Đường thẳng, pie: Tròn)"
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        },
+                        "description": "BẮT BUỘC KHÔNG ĐƯỢC BỎ TRỐNG: Bạn phải truyền mảng `chart_data` (chứa dữ liệu thống kê thật) vừa nhận được từ tool `get_statistics` vào đây. Ví dụ: [{'name': 'Tháng 1', 'revenue': 1000}, ...]"
+                    },
+                    "xAxisKey": {
+                        "type": "string",
+                        "description": "Tên của key trong dữ liệu (data) dùng làm trục X (Ví dụ: 'name')"
+                    },
+                    "dataKeys": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Tên của các key trong dữ liệu (data) dùng làm trục Y hoặc hiển thị giá trị. Nếu là Pie thì thường chỉ có 1 dataKey (Ví dụ: ['revenue'])"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Đoạn mô tả hoặc nhận xét, giải thích ngắn gọn thêm về biểu đồ"
+                    }
+                },
+                "required": ["title", "type", "data", "xAxisKey", "dataKeys"]
             }
         }
     }

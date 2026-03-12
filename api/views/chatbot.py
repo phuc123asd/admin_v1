@@ -113,6 +113,16 @@ def chatbot(request):
             "KHÔNG hỏi lại hay liệt kê yêu cầu — hệ thống sẽ tự hiện form để admin điền còn thiếu."
         )
         
+        if "biểu đồ" in question.lower() or "chart" in question.lower() or "vẽ" in question.lower():
+            system_prompt += (
+                "\n\n[QUAN TRỌNG NHẤT]: Người dùng yêu cầu VẼ BIỂU ĐỒ. Bạn BẮT BUỘC phải làm theo trình tự sau:\n"
+                "1. Gọi Tool `get_statistics` để lấy số liệu thực tế.\n"
+                "2. Khi nhận được kết quả thống kê, hãy tìm mảng `chart_data` trong kết quả đó.\n"
+                "3. BẠN PHẢI LẬP TỨC gọi Tool `draw_chart` để vẽ biểu đồ.\n"
+                "4. CHÚ Ý: Bạn BẮT BUỘC phải truyền mảng `chart_data` vừa lấy được vào tham số `data` của hàm `draw_chart`. KHÔNG ĐƯỢC BỎ QUÊN tham số `data` này!\n"
+                "5. TUYỆT ĐỐI KHÔNG trả lời bằng văn bản (text) thay vì vẽ biểu đồ!"
+            )
+        
         try:
             # Parse lịch sử chat từ frontend (nếu có)
             chat_history_raw = request.POST.get('chat_history', '[]')
@@ -129,126 +139,139 @@ def chatbot(request):
                 *chat_history,  # Chèn lịch sử hội thoại trước câu hỏi hiện tại
                 {"role": "user", "content": f"Câu hỏi/Yêu cầu: {question}"}
             ]
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                tools=ADMIN_TOOLS,
-                tool_choice="auto",
-                max_tokens=600,
-                temperature=0.2,
-            )
-            
-            message = response.choices[0].message
-            
-            if message.tool_calls:
-                # Trích xuất và chạy Tool
-                tool_call = message.tool_calls[0]
-                function_name = tool_call.function.name
-                
-                try:
-                    function_args = json.loads(tool_call.function.arguments)
-                except Exception as e:
-                    function_args = {}
-                    print(f"[TOOL PARSE ERROR] Lỗi phân tích JSON Argument: {e}")
-
-                print(f"[AGENT ACTIVATED] AI Gọi hàm: {function_name} | Tham số: {function_args}")
-                
-                # Nếu AI muốn thêm sản phẩm nhưng chưa có ảnh (chưa upload),
-                # trả về tín hiệu để frontend hiện inline form thay vì chạy ngay (trừ khi form đã được submit)
-                if function_name == "add_product" and not function_args.get("images") and not is_form_submit:
-                    prefill = {k: v for k, v in function_args.items() if k != "images"}
-                    return JsonResponse({
-                        "success": True,
-                        "action": "show_product_form",
-                        "prefill": prefill,
-                        "answer": "Hãy điền thông tin sản phẩm vào form bên dưới nhé! 👇"
-                    })
-                
-                # Nếu AI muốn cập nhật sản phẩm, ta cũng hiện form với thông tin cũ (trừ khi form đã được submit)
-                if function_name == "update_product" and not is_form_submit:
-                    product_id_query = function_args.get("product_id")
-                    if product_id_query:
-                        from api.models.product import Product
-                        from api.models.productdetail import ProductDetail
-                        from bson.errors import InvalidId
-                        from mongoengine.errors import ValidationError
-                        
-                        product = Product.objects(name=product_id_query).first()
-                        if not product:
-                            try:
-                                product = Product.objects(id=product_id_query).first()
-                            except (InvalidId, ValidationError):
-                                pass
-                                
-                        if product:
-                            detail = ProductDetail.objects(product=product).first()
-                            # Tạo prefill từ dữ liệu cũ + dữ liệu AI muốn đổi
-                            prefill = {
-                                "id": str(product.id),
-                                "name": function_args.get("name", product.name),
-                                "price": function_args.get("price", product.price),
-                                "originalPrice": function_args.get("originalPrice", getattr(product, 'originalPrice', '')),
-                                "category": function_args.get("category", product.category),
-                                "brand": function_args.get("brand", product.brand),
-                                "isNew": function_args.get("isNew", getattr(product, 'isNew', False)),
-                            }
-                            if detail:
-                                prefill.update({
-                                    "description": function_args.get("description", detail.description),
-                                    "features": function_args.get("features", detail.features),
-                                    "specifications": function_args.get("specifications", detail.specifications),
-                                    "inStock": function_args.get("inStock", detail.inStock),
-                                })
-                                
-                                prefill["mainImage"] = getattr(product, 'image', '')
-                                prefill["galleryImages"] = getattr(detail, 'images', [])
-                                
-                            return JsonResponse({
-                                "success": True,
-                                "action": "show_product_form",
-                                "prefill": prefill,
-                                "answer": "Dưới đây là thông tin sản phẩm. Bạn có thể chỉnh sửa và cập nhật! 👇"
-                            })
-                
-                # Gọi Backend Python tương ứng
-                result = execute_tool_call(function_name, function_args)
-                
-                # Nếu action là chuyển trang, trả về luôn để frontend điều hướng UI nhanh chóng
-                if function_name == "navigate_page":
-                    return JsonResponse(result)
-                    
-                # Đưa kết quả của Backend (Tool) vào lại context của AI
-                messages.append(message)
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "name": function_name,
-                    "content": json.dumps(result, ensure_ascii=False)
-                })
-                
-                # Gọi OpenAI lần 2 để AI phân tích kết quả và trả lời tự nhiên
-                second_response = client.chat.completions.create(
-                    model="gpt-4o-mini",
+            # Cho phép AI suy luận qua nhiều bước (hỗ trợ gọi tool liên tiếp)
+            MAX_STEPS = 5
+            for step in range(MAX_STEPS):
+                response = client.chat.completions.create(
+                    model="gpt-4o", # Model mạnh hơn xíu để xử lý chain lý luận
                     messages=messages,
+                    tools=ADMIN_TOOLS,
+                    tool_choice="auto",
+                    parallel_tool_calls=False,
                     max_tokens=800,
-                    temperature=0.3,
+                    temperature=0.2,
                 )
                 
-                natural_answer = second_response.choices[0].message.content
+                message = response.choices[0].message
                 
-                return JsonResponse({
-                    "success": True,
-                    "action": "general_chat",
-                    "answer": natural_answer
-                })
-            else:
-                # Không gọi tool, trả lời trò chuyện thông thường
-                natural_answer = message.content
-                return JsonResponse({
-                    "success": True,
-                    "action": "general_chat",
-                    "answer": natural_answer
-                })
+                # Nếu AI trả về function call
+                if message.tool_calls:
+                    messages.append(message)
+                    tool_call = message.tool_calls[0]
+                    function_name = tool_call.function.name
+                    
+                    try:
+                        function_args = json.loads(tool_call.function.arguments)
+                    except Exception as e:
+                        function_args = {}
+                        print(f"[TOOL PARSE ERROR] Lỗi phân tích JSON Argument: {e}")
+
+                    print(f"[AGENT ACTIVATED] Bước {step+1}: AI Gọi {function_name} | Tham số: {function_args}")
+                    
+                    # Render frontend form nếu AI muốn add data
+                    if function_name == "add_product" and not function_args.get("images") and not is_form_submit:
+                        prefill = {k: v for k, v in function_args.items() if k != "images"}
+                        return JsonResponse({
+                            "success": True,
+                            "action": "show_product_form",
+                            "prefill": prefill,
+                            "answer": "Hãy điền thông tin sản phẩm vào form bên dưới nhé! 👇"
+                        })
+                    
+                    # Render frontend form nếu AI muốn update data
+                    if function_name == "update_product" and not is_form_submit:
+                        product_id_query = function_args.get("product_id")
+                        if product_id_query:
+                            from api.models.product import Product
+                            from api.models.productdetail import ProductDetail
+                            from bson.errors import InvalidId
+                            from mongoengine.errors import ValidationError
+                            
+                            product = Product.objects(name=product_id_query).first()
+                            if not product:
+                                try:
+                                    product = Product.objects(id=product_id_query).first()
+                                except (InvalidId, ValidationError):
+                                    pass
+                                    
+                            if product:
+                                detail = ProductDetail.objects(product=product).first()
+                                prefill = {
+                                    "id": str(product.id),
+                                    "name": function_args.get("name", product.name),
+                                    "price": function_args.get("price", product.price),
+                                    "originalPrice": function_args.get("originalPrice", getattr(product, 'originalPrice', '')),
+                                    "category": function_args.get("category", product.category),
+                                    "brand": function_args.get("brand", product.brand),
+                                    "isNew": function_args.get("isNew", getattr(product, 'isNew', False)),
+                                }
+                                if detail:
+                                    prefill.update({
+                                        "description": function_args.get("description", detail.description),
+                                        "features": function_args.get("features", detail.features),
+                                        "specifications": function_args.get("specifications", detail.specifications),
+                                        "inStock": function_args.get("inStock", detail.inStock),
+                                    })
+                                    
+                                    prefill["mainImage"] = getattr(product, 'image', '')
+                                    prefill["galleryImages"] = getattr(detail, 'images', [])
+                                    
+                                return JsonResponse({
+                                    "success": True,
+                                    "action": "show_product_form",
+                                    "prefill": prefill,
+                                    "answer": "Dưới đây là thông tin sản phẩm. Bạn có thể chỉnh sửa và cập nhật! 👇"
+                                })
+                    
+                    # Gọi Backend Python Tool
+                    result = execute_tool_call(function_name, function_args)
+                    
+                    # Nếu action là draw_chart hoặc navigate_page -> ngắt vòng lặp, trả về luôn giao diện
+                    if function_name in ["navigate_page", "draw_chart"]:
+                        # TỰ ĐỘNG CHÈN DỮ LIỆU NẾU AI QUÊN TRUYỀN `data` CHO BIỂU ĐỒ
+                        if function_name == "draw_chart" and not result.get("data"):
+                            import json as jsn
+                            print("\n[INJECT] AI did not provide 'data', searching history for 'get_statistics'...")
+                            for past_msg in reversed(messages):
+                                if isinstance(past_msg, dict) and past_msg.get("role") == "tool" and past_msg.get("name") == "get_statistics":
+                                    print("[INJECT] Found previous 'get_statistics' result in messages!")
+                                    try:
+                                        stats_data = jsn.loads(past_msg.get("content", "{}"))
+                                        if "raw_data" in stats_data and "chart_data" in stats_data["raw_data"]:
+                                            result["data"] = stats_data["raw_data"]["chart_data"]
+                                            print(f"[INJECT] Successfully injected {len(result['data'])} rows into chart payload!")
+                                            break
+                                        else:
+                                            print("[INJECT] 'chart_data' not found in raw_data!")
+                                            print("Raw keys:", stats_data.get("raw_data", {}).keys())
+                                    except Exception as e:
+                                        print(f"[INJECT ERROR] {e}")
+                                        pass
+
+                        return JsonResponse(result)
+                        
+                    # Mấu chốt: Thêm kết quả của Tool vào để AI tiếp tục vòng lặp suy luận
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "name": function_name,
+                        "content": json.dumps(result, ensure_ascii=False)
+                    })
+                    print(f"[AGENT THOUGHT] Đã gửi kết quả {function_name} lại cho AI...")
+                else:
+                    # Kết thúc vòng lặp (AI không gọi Tool nữa, chỉ chat tự nhiên)
+                    return JsonResponse({
+                        "success": True,
+                        "action": "general_chat",
+                        "answer": message.content or "Đã thực hiện xong yêu cầu."
+                    })
+            
+            # Nếu vòng lặp chạy quá số lần giới hạn
+            return JsonResponse({
+                "success": True,
+                "action": "general_chat",
+                "answer": "Yêu cầu có quá nhiều bước lấy dữ liệu. Hãy thử chia nhỏ câu hỏi nhé!"
+            })
         except Exception as e:
             import traceback
             trace = traceback.format_exc()

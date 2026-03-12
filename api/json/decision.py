@@ -167,8 +167,8 @@ def create_statistics_summary(stats_type, stats_data):
         return f"""
         **Tổng quan đơn hàng:**
         - Tổng số đơn hàng: {stats_data.get('total_orders', 0)}
-        - Tổng doanh thu: {stats_data.get('total_revenue', 0):,} VNĐ
-        - Giá trị đơn hàng trung bình: {stats_data.get('avg_order_value', 0):,} VNĐ
+        - Tổng doanh thu: {stats_data.get('total_revenue', 0):,} $
+        - Giá trị đơn hàng trung bình: {stats_data.get('avg_order_value', 0):,} $
         - Đơn hàng hôm nay: {stats_data.get('time_periods', {}).get('today', 0)}
         - Đơn hàng tuần này: {stats_data.get('time_periods', {}).get('this_week', 0)}
         - Đơn hàng tháng này: {stats_data.get('time_periods', {}).get('this_month', 0)}
@@ -181,11 +181,11 @@ def create_statistics_summary(stats_type, stats_data):
         
         return f"""
         **Thống kê doanh thu {stats_data.get('period', '30 ngày')}:**
-        - Doanh thu kỳ hiện tại: {current.get('total_revenue', 0):,} VNĐ
-        - Doanh thu kỳ trước: {previous.get('total_revenue', 0):,} VNĐ
+        - Doanh thu kỳ hiện tại: {current.get('total_revenue', 0):,} $
+        - Doanh thu kỳ trước: {previous.get('total_revenue', 0):,} $
         - Tăng trưởng: {growth:.2f}%
         - Số đơn hàng kỳ hiện tại: {current.get('total_orders', 0)}
-        - Giá trị đơn hàng trung bình: {current.get('avg_order_value', 0):,} VNĐ
+        - Giá trị đơn hàng trung bình: {current.get('avg_order_value', 0):,} $
         """
     
     elif stats_type == "products":
@@ -200,9 +200,9 @@ def create_statistics_summary(stats_type, stats_data):
         
         summary += "\n**Sản phẩm có doanh thu cao nhất:**\n"
         if top_by_revenue:
-            summary += f"- {top_by_revenue[0].get('name', 'N/A')}: {top_by_revenue[0].get('revenue', 0):,} VNĐ\n"
-            summary += f"- {top_by_revenue[1].get('name', 'N/A')}: {top_by_revenue[1].get('revenue', 0):,} VNĐ\n"
-            summary += f"- {top_by_revenue[2].get('name', 'N/A')}: {top_by_revenue[2].get('revenue', 0):,} VNĐ\n"
+            summary += f"- {top_by_revenue[0].get('name', 'N/A')}: {top_by_revenue[0].get('revenue', 0):,} $\n"
+            summary += f"- {top_by_revenue[1].get('name', 'N/A')}: {top_by_revenue[1].get('revenue', 0):,} $\n"
+            summary += f"- {top_by_revenue[2].get('name', 'N/A')}: {top_by_revenue[2].get('revenue', 0):,} $\n"
         
         return summary
     
@@ -221,9 +221,9 @@ def create_statistics_summary(stats_type, stats_data):
         """
         
         if top_by_revenue:
-            summary += f"- {top_by_revenue[0].get('name', 'N/A')}: {top_by_revenue[0].get('total_revenue', 0):,} VNĐ\n"
-            summary += f"- {top_by_revenue[1].get('name', 'N/A')}: {top_by_revenue[1].get('total_revenue', 0):,} VNĐ\n"
-            summary += f"- {top_by_revenue[2].get('name', 'N/A')}: {top_by_revenue[2].get('total_revenue', 0):,} VNĐ\n"
+            summary += f"- {top_by_revenue[0].get('name', 'N/A')}: {top_by_revenue[0].get('total_revenue', 0):,} $\n"
+            summary += f"- {top_by_revenue[1].get('name', 'N/A')}: {top_by_revenue[1].get('total_revenue', 0):,} $\n"
+            summary += f"- {top_by_revenue[2].get('name', 'N/A')}: {top_by_revenue[2].get('total_revenue', 0):,} $\n"
         
         return summary
     
@@ -261,12 +261,31 @@ def execute_tool_call(action, payload):
         elif action == "get_statistics":
             stats_type = payload.get("type", "overview")
             days = payload.get("days", 30)
+            start_date_str = payload.get("startDate")
+            end_date_str = payload.get("endDate")
+            
+            kwargs = {}
+            if start_date_str or end_date_str:
+                from datetime import datetime
+                if start_date_str:
+                    try:
+                        kwargs['start_date'] = datetime.strptime(start_date_str, "%Y-%m-%d")
+                    except ValueError: pass
+                if end_date_str:
+                    try:
+                        # Ensure we include the entire end day 
+                        kw_end = datetime.strptime(end_date_str, "%Y-%m-%d")
+                        kwargs['end_date'] = kw_end.replace(hour=23, minute=59, second=59)
+                    except ValueError: pass
+            else:
+                kwargs['days'] = days
+
             stats_service = OrderStatisticsService()
             
             if stats_type == "overview":
                 stats_data = stats_service.get_overview_statistics()
             elif stats_type == "revenue":
-                stats_data = stats_service.get_revenue_statistics(days)
+                stats_data = stats_service.get_revenue_statistics(**kwargs)
             elif stats_type == "geographical":
                 stats_data = stats_service.get_geographical_statistics()
             elif stats_type == "products":
@@ -277,7 +296,12 @@ def execute_tool_call(action, payload):
                 return {"success": False, "action": "statistics", "error": "Invalid type parameter"}
             
             summary = create_statistics_summary(stats_type, stats_data)
-            return {"success": True, "action": "statistics", "answer": summary}
+            return {
+                "success": True, 
+                "action": "statistics", 
+                "answer": summary,
+                "raw_data": stats_data
+            }
             
         elif action == "navigate_page":
             path = payload.get("path")
@@ -390,6 +414,16 @@ def execute_tool_call(action, payload):
                     return {"success": False, "action": action, "error": "Sản phẩm này không có file chi tiết"}
             except Exception as e:
                 return {"success": False, "action": action, "error": f"Lỗi cập nhật kho: {e}"}
+                
+        elif action == "draw_chart":
+            # Just pass the chart data payload back to the UI at the top level
+            result = {
+                "success": True, 
+                "action": "draw_chart", 
+                "answer": payload.get("description", "Dưới đây là biểu đồ bạn yêu cầu:")
+            }
+            result.update(payload)
+            return result
             
         else:
              return {"success": False, "action": "none", "error": f"Hành động không hợp lệ: {action}"}
