@@ -34,7 +34,11 @@ export function ProductDetailPage() {
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedImage, setSelectedImage] = useState<string>('');
+  const [selectedImageIdx, setSelectedImageIdx] = useState<number>(0);
+  
+  const allImages = (product?.detail?.images && product.detail.images.length > 0) 
+    ? product.detail.images 
+    : (product ? [product.image] : []);
 
   useEffect(() => {
     const fetchProductDetail = async () => {
@@ -47,7 +51,7 @@ export function ProductDetailPage() {
         setLoading(true);
         const response = await axios.get(`${import.meta.env.VITE_API_URL}/products/${productId}`);
         setProduct(response.data);
-        setSelectedImage(response.data.image);
+        setSelectedImageIdx(0);
         setError(null);
       } catch (err) {
         console.error("Lỗi khi tải chi tiết sản phẩm:", err);
@@ -64,20 +68,15 @@ export function ProductDetailPage() {
     navigate('/products');
   };
 
-  // --- HÀM ĐỊNH DẠNG GIÁ MỚI ---
   const formatPrice = (priceString: string) => {
-    // Làm sạch chuỗi giá (loại bỏ $, ₫, dấu phẩy...)
     const numericPrice = parseFloat(priceString.replace(/[^0-9.-]+/g, ""));
     if (isNaN(numericPrice)) return '$0.00';
-    
-    // Định dạng thành tiền tệ USD
     return numericPrice.toLocaleString('en-US', {
       style: 'currency',
       currency: 'USD',
     });
   };
   
-  // ... renderStars và các phần khác giữ nguyên ...
   const renderStars = (rating?: number) => {
     if (!rating) return null;
     const stars = [];
@@ -86,7 +85,9 @@ export function ProductDetailPage() {
     for (let i = 0; i < fullStars; i++) {
       stars.push(<svg key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>);
     }
-    if (hasHalfStar) { /* ... logic sao nửa ... */ }
+    if (hasHalfStar) {
+      stars.push(<svg key="half" className="w-4 h-4 fill-yellow-400 text-yellow-400" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /><path fill="white" d="M10 2a1 1 0 011 1v14a1 1 0 11-2 0V3a1 1 0 011-1z" /></svg>);
+    }
     const emptyStars = 5 - Math.ceil(rating);
     for (let i = 0; i < emptyStars; i++) {
       stars.push(<svg key={`empty-${i}`} className="w-4 h-4 text-gray-300" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>);
@@ -94,6 +95,9 @@ export function ProductDetailPage() {
     return stars;
   };
 
+  // Find the current image to display
+  const currentImage = allImages[selectedImageIdx] || (product?.image ?? '');
+  
   if (loading) {
     return <div className="flex justify-center items-center h-screen"><Loader className="w-8 h-8 text-blue-600 animate-spin" /><span className="ml-2 text-gray-600">Đang tải thông tin sản phẩm...</span></div>;
   }
@@ -120,17 +124,24 @@ export function ProductDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="space-y-4">
-          {/* ... Phần hình ảnh giữ nguyên ... */}
-          <div className="aspect-square overflow-hidden rounded-2xl bg-gray-100">
-            <img src={selectedImage} alt={product.name} className="w-full h-full object-cover" />
+          <div className="aspect-square overflow-hidden rounded-2xl bg-gray-100 border border-slate-200 shadow-inner">
+            <img src={currentImage} alt={product.name} className="w-full h-full object-contain" />
           </div>
-          {product.detail.images && product.detail.images.length > 0 && (
-            <div className="flex space-x-2 overflow-x-auto py-2">
-              <img src={product.image} alt={product.name} className={`w-20 h-20 object-cover rounded-lg cursor-pointer border-2 ${selectedImage === product.image ? 'border-blue-500' : 'border-transparent'}`} onClick={() => setSelectedImage(product.image)} />
-              {product.detail.images.map((image, index) => (<img key={index} src={image} alt={`${product.name} ${index + 1}`} className={`w-20 h-20 object-cover rounded-lg cursor-pointer border-2 ${selectedImage === image ? 'border-blue-500' : 'border-transparent'}`} onClick={() => setSelectedImage(image)} />))}
+          {allImages.length > 1 && (
+            <div className="flex space-x-2 overflow-x-auto py-2 scrollbar-none">
+              {allImages.map((image, index) => (
+                <img 
+                  key={`${image}-${index}`} 
+                  src={image} 
+                  alt={`${product.name} ${index + 1}`} 
+                  className={`w-20 h-20 object-cover rounded-lg cursor-pointer border-2 transition-all ${selectedImageIdx === index ? 'border-blue-500 shadow-md scale-105' : 'border-transparent opacity-70 hover:opacity-100'}`} 
+                  onClick={() => setSelectedImageIdx(index)} 
+                />
+              ))}
             </div>
           )}
         </motion.div>
+
 
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="space-y-6">
           <div>
