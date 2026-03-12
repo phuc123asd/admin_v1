@@ -6,6 +6,7 @@ import axios from 'axios';
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { ChatChart, ChartData } from './chat/ChatChart';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ProductFormData {
@@ -30,8 +31,9 @@ interface Message {
   sender: 'user' | 'ai';
   timestamp: Date;
   images?: string[];
-  type?: 'chat' | 'product_form';
+  type?: 'chat' | 'product_form' | 'chart';
   formPrefill?: Partial<ProductFormData>;
+  chartData?: ChartData;
 }
 
 interface ChatPageProps {
@@ -465,6 +467,25 @@ export function ChatPage({ isDark }: ChatPageProps) {
           { id: crypto.randomUUID(), text: data.answer || 'Điền thông tin sản phẩm vào form bên dưới 👇', sender: 'ai', timestamp: new Date() },
           { id: crypto.randomUUID(), text: '', sender: 'ai', timestamp: new Date(), type: 'product_form', formPrefill: data.prefill },
         ]);
+      } else if (data.action === 'draw_chart') {
+        setMessages(prev => [
+          ...prev,
+          { id: crypto.randomUUID(), text: data.answer || 'Dưới đây là biểu đồ:', sender: 'ai', timestamp: new Date() },
+          { 
+            id: crypto.randomUUID(), 
+            text: '', 
+            sender: 'ai', 
+            timestamp: new Date(), 
+            type: 'chart',
+            chartData: {
+              title: data.title || '',
+              type: data.type || 'line',
+              data: data.data || [],
+              xAxisKey: data.xAxisKey || '',
+              dataKeys: data.dataKeys || []
+            }
+          },
+        ]);
       } else {
         let text = '';
         if (data.action === 'general_chat' || data.action === 'statistics') {
@@ -587,6 +608,16 @@ export function ChatPage({ isDark }: ChatPageProps) {
                           <div className="w-full max-w-2xl">
                             <ProductFormCard isDark={isDark} prefill={message.formPrefill}
                               onSuccess={name => addAiMessage(`✅ Sản phẩm **"${name}"** đã được ${message.formPrefill?.id ? 'cập nhật' : 'tạo'} thành công và đã xuất hiện trong danh sách sản phẩm!`)} />
+                          </div>
+                        ) : message.type === 'chart' && message.chartData ? (
+                          /* ── Chart message ── */
+                          <div className="w-full max-w-3xl">
+                            <ChatChart data={message.chartData} isDark={isDark} />
+                            {message.text && (
+                              <div className={`mt-3 text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                                <ReactMarkdown components={MarkdownComponents}>{message.text}</ReactMarkdown>
+                              </div>
+                            )}
                           </div>
                         ) : message.sender === 'user' ? (
                           /* ── User message ── */
