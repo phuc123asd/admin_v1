@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Copy, Check, Package, X, CheckCircle, Loader2, Plus, Trash2, ShoppingCart, MapPin, CreditCard, Clock, BadgeCheck, AlertCircle } from 'lucide-react';
+import { Send, Copy, Check, Package, X, CheckCircle, Loader2, Plus, Trash2, ShoppingCart, MapPin, CreditCard, Clock, BadgeCheck, AlertCircle, Sparkles } from 'lucide-react';
 import axios from 'axios';
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -74,7 +74,45 @@ function ProductFormCard({ isDark, prefill, onSuccess }: {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [isAiSuggesting, setIsAiSuggesting] = useState(false);
+  const [aiHighlight, setAiHighlight] = useState(false);
   const imgInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAiSuggest = async () => {
+    if (!form.name.trim()) return;
+    setIsAiSuggesting(true);
+    try {
+      const prompt = `Bạn là một chuyên gia Copywriting công nghệ. Hãy gợi ý nội dung sản phẩm chuyên nghiệp, đẳng cấp cho form: tên="${form.name}"${form.category ? `, danh mục="${form.category}"` : ''}${form.brand ? `, thương hiệu="${form.brand}"` : ''}${form.price ? `, giá=${form.price}` : ''}. 
+      YÊU CẦU: 
+      1. Description: Viết theo mô hình AIDA, văn phong sang trọng.
+      2. Features: Cấu trúc Feature-Benefit (nêu bật lợi ích thực tế).
+      3. Specifications: Thông số kỹ thuật chuyên sâu, chính xác.
+      Hãy GỌI TOOL add_product để trả về dữ liệu này.`;
+      const fd = new FormData();
+      fd.append('question', prompt);
+      fd.append('role', 'admin');
+      fd.append('is_form_submit', 'false');
+      const res = await axios.post(`${import.meta.env.VITE_API_URL}/chatbot/`, fd);
+      const data = res.data;
+      if (data.action === 'show_product_form' && data.prefill) {
+        const p = data.prefill;
+        if (p.description) setForm(prev => ({ ...prev, description: String(p.description) }));
+        if (p.features && Array.isArray(p.features) && p.features.length > 0) {
+          setForm(prev => ({ ...prev, features: p.features }));
+        }
+        if (p.specifications && typeof p.specifications === 'object') {
+          const specs = Object.entries(p.specifications).map(([key, value]) => ({ key, value: String(value) }));
+          if (specs.length > 0) setForm(prev => ({ ...prev, specifications: specs }));
+        }
+        setAiHighlight(true);
+        setTimeout(() => setAiHighlight(false), 2000);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setIsAiSuggesting(false);
+    }
+  };
 
   // Categories & Brands fetching
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
@@ -197,14 +235,32 @@ function ProductFormCard({ isDark, prefill, onSuccess }: {
       className={`rounded-2xl border shadow-lg overflow-hidden ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
 
       {/* Header */}
-      <div className="px-5 py-4 flex items-center gap-2 border-b bg-gradient-to-r from-blue-600/10 to-violet-600/10" style={{ borderBottomStyle: 'dashed', borderColor: isDark ? '#334155' : '#e2e8f0' }}>
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-sm">
-          <Package size={15} className="text-white" />
+      <div className="px-5 py-4 flex items-center justify-between gap-2 border-b bg-gradient-to-r from-blue-600/10 to-violet-600/10" style={{ borderBottomStyle: 'dashed', borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-sm">
+            <Package size={15} className="text-white" />
+          </div>
+          <div>
+            <p className={`text-sm font-semibold ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{form.id ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới'}</p>
+            <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Điền đầy đủ thông tin và bấm {form.id ? 'Cập nhật' : 'Tạo'} sản phẩm</p>
+          </div>
         </div>
-        <div>
-          <p className={`text-sm font-semibold ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{form.id ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới'} [Dropdown V1]</p>
-          <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Điền đầy đủ thông tin và bấm {form.id ? 'Cập nhật' : 'Tạo'} sản phẩm</p>
-        </div>
+        <button
+          onClick={handleAiSuggest}
+          disabled={isAiSuggesting || !form.name.trim()}
+          title={!form.name.trim() ? 'Nhập tên sản phẩm trước' : 'AI tự động gợi ý mô tả, tính năng, thông số'}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-sm
+            ${ isAiSuggesting
+              ? 'opacity-70 cursor-wait bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-violet-400/30'
+              : !form.name.trim()
+              ? isDark ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              : 'bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-600 hover:to-purple-700 shadow-violet-400/30 hover:shadow-violet-400/50 hover:shadow-md'
+            }`}
+        >
+          {isAiSuggesting
+            ? <><Loader2 size={12} className="animate-spin" />Đang gợi ý...</>
+            : <><Sparkles size={12} />AI Gợi ý nội dung</>}
+        </button>
       </div>
 
       <div className="px-5 py-4 space-y-4">
@@ -260,7 +316,13 @@ function ProductFormCard({ isDark, prefill, onSuccess }: {
         {/* Mô tả */}
         <div>
           <label className={lbl}>Mô tả sản phẩm</label>
-          <textarea className={`${inp} resize-none`} rows={2} placeholder="Mô tả ngắn hấp dẫn về sản phẩm..." value={form.description} onChange={e => set('description', e.target.value)} />
+          <textarea
+            className={`${inp} resize-none transition-all duration-500 ${aiHighlight ? (isDark ? 'ring-2 ring-violet-500/50 border-violet-500' : 'ring-2 ring-violet-400/50 border-violet-400') : ''}`}
+            rows={2}
+            placeholder="Mô tả ngắn hấp dẫn về sản phẩm..."
+            value={form.description}
+            onChange={e => set('description', e.target.value)}
+          />
         </div>
 
         {/* Tính năng nổi bật */}
@@ -274,7 +336,12 @@ function ProductFormCard({ isDark, prefill, onSuccess }: {
           <div className="space-y-2">
             {form.features.map((f, i) => (
               <div key={i} className="flex gap-2 items-center">
-                <input className={inp} placeholder={`Tính năng ${i + 1} (VD: Chip A17 Pro)`} value={f} onChange={e => updateFeature(i, e.target.value)} />
+                <input
+                  className={`${inp} transition-all duration-500 ${aiHighlight ? (isDark ? 'ring-2 ring-violet-500/50 border-violet-500' : 'ring-2 ring-violet-400/50 border-violet-400') : ''}`}
+                  placeholder={`Tính năng ${i + 1} (VD: Chip A17 Pro)`}
+                  value={f}
+                  onChange={e => updateFeature(i, e.target.value)}
+                />
                 {form.features.length > 1 && (
                   <button onClick={() => removeFeature(i)} className="flex-shrink-0 text-red-400 hover:text-red-500 p-1"><Trash2 size={14} /></button>
                 )}
@@ -294,9 +361,19 @@ function ProductFormCard({ isDark, prefill, onSuccess }: {
           <div className="space-y-2">
             {form.specifications.map((spec, i) => (
               <div key={i} className="flex gap-2 items-center">
-                <input className={inp} placeholder="Tên thông số (VD: Màn hình)" value={spec.key} onChange={e => updateSpec(i, 'key', e.target.value)} />
+                <input
+                  className={`${inp} transition-all duration-500 ${aiHighlight ? (isDark ? 'ring-2 ring-violet-500/50 border-violet-500' : 'ring-2 ring-violet-400/50 border-violet-400') : ''}`}
+                  placeholder="Tên thông số (VD: Màn hình)"
+                  value={spec.key}
+                  onChange={e => updateSpec(i, 'key', e.target.value)}
+                />
                 <span className={`flex-shrink-0 text-sm ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>:</span>
-                <input className={inp} placeholder="Giá trị (VD: 6.1 inch OLED)" value={spec.value} onChange={e => updateSpec(i, 'value', e.target.value)} />
+                <input
+                  className={`${inp} transition-all duration-500 ${aiHighlight ? (isDark ? 'ring-2 ring-violet-500/50 border-violet-500' : 'ring-2 ring-violet-400/50 border-violet-400') : ''}`}
+                  placeholder="Giá trị (VD: 6.1 inch OLED)"
+                  value={spec.value}
+                  onChange={e => updateSpec(i, 'value', e.target.value)}
+                />
                 {form.specifications.length > 1 && (
                   <button onClick={() => removeSpec(i)} className="flex-shrink-0 text-red-400 hover:text-red-500 p-1"><Trash2 size={14} /></button>
                 )}
