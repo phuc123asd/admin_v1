@@ -113,7 +113,11 @@ def chatbot(request):
             "KHÔNG hỏi lại hay liệt kê yêu cầu — hệ thống sẽ tự hiện form để admin điền còn thiếu. "
             "QUAN TRỌNG: Khi người dùng muốn SỬA/CẬP NHẬT/CHỈNH SỬA sản phẩm (dù chỉ cung cấp ID hoặc tên), "
             "hãy GỌI NGAY tool update_product với product_id tương ứng. "
-            "KHÔNG hỏi lại 'bạn muốn sửa gì' — hệ thống sẽ tự hiện form chứa dữ liệu hiện tại để admin chỉnh sửa."
+            "KHÔNG hỏi lại 'bạn muốn sửa gì' — hệ thống sẽ tự hiện form chứa dữ liệu hiện tại để admin chỉnh sửa. "
+            "QUAN TRỌNG: Khi người dùng muốn DUYỆT đơn hàng, hãy GỌI NGAY tool approve_order. "
+            "Nếu họ nói 'duyệt tất cả' hoặc không chỉ rõ ID, truyền order_ids=[]. "
+            "Nếu nói 'duyệt N đơn mới nhất', cũng truyền order_ids=[] — hệ thống sẽ xử lý. "
+            "KHÔNG hỏi lại — hệ thống sẽ hiện danh sách đơn hàng để admin xác nhận trước khi duyệt."
         )
         
         if "biểu đồ" in question.lower() or "chart" in question.lower() or "vẽ" in question.lower():
@@ -226,6 +230,82 @@ def chatbot(request):
                                     "answer": "Dưới đây là thông tin sản phẩm. Bạn có thể chỉnh sửa và cập nhật! 👇"
                                 })
                     
+                    # Render frontend card nếu AI muốn duyệt đơn hàng
+                    if function_name == "approve_order" and not is_form_submit:
+                        from api.models.order import Order
+                        from api.models.product import Product
+                        
+                        order_ids = function_args.get("order_ids", [])
+                        
+                        if not order_ids:
+                            orders = Order.objects(status='Đang Xử Lý').order_by('-created_at').limit(20)
+                        else:
+                            from bson.errors import InvalidId
+                            orders = []
+                            for oid in order_ids:
+                                try:
+                                    o = Order.objects(id=oid).first()
+                                    if o:
+                                        orders.append(o)
+                                except (InvalidId, Exception):
+                                    pass
+                        
+                        if not orders:
+                            # Không có đơn nào → trả text bình thường
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "name": function_name,
+                                "content": json.dumps({"success": False, "error": "Không có đơn hàng nào đang chờ duyệt."}, ensure_ascii=False)
+                            })
+                            continue
+                        
+                        order_list = []
+                        for o in orders:
+                            customer_name = "Không rõ"
+                            if o.customer:
+                                try:
+                                    customer_name = f"{o.customer.first_name} {o.customer.last_name}"
+                                except Exception:
+                                    pass
+                            
+                            # Resolve product names
+                            items_data = []
+                            for item in (o.items or []):
+                                product_name = "Sản phẩm"
+                                if item.product_id:
+                                    try:
+                                        p = Product.objects(id=item.product_id).first()
+                                        if p:
+                                            product_name = p.name
+                                    except Exception:
+                                        pass
+                                items_data.append({
+                                    "productName": product_name,
+                                    "quantity": item.quantity,
+                                    "unitPrice": str(item.unit_price) if item.unit_price else "0",
+                                })
+                            
+                            order_list.append({
+                                "id": str(o.id),
+                                "customerName": customer_name,
+                                "phone": o.phone or "",
+                                "shippingAddress": f"{o.shipping_address}, {o.city}, {o.province}",
+                                "paymentMethod": o.payment_method or "cod",
+                                "paymentStatus": o.payment_status or "pending",
+                                "totalPrice": str(o.total_price),
+                                "status": o.status,
+                                "items": items_data,
+                                "createdAt": o.created_at.strftime("%d/%m/%Y %H:%M") if o.created_at else "",
+                            })
+                        
+                        return JsonResponse({
+                            "success": True,
+                            "action": "show_order_approval",
+                            "orders": order_list,
+                            "answer": f"Có {len(order_list)} đơn hàng đang chờ duyệt. Vui lòng kiểm tra và xác nhận! 👇"
+                        })
+
                     # Gọi Backend Python Tool
                     result = execute_tool_call(function_name, function_args)
                     
