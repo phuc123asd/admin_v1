@@ -1,12 +1,14 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Copy, Check, Package, X, CheckCircle, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Send, Copy, Check, Package, X, CheckCircle, Loader2, Plus, Trash2, ShoppingCart, MapPin, CreditCard, Clock, BadgeCheck, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { ChatChart, ChartData } from './chat/ChatChart';
+import { OrderApprovalCard, OrderData } from './chat/OrderApprovalCard';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ProductFormData {
@@ -31,9 +33,10 @@ interface Message {
   sender: 'user' | 'ai';
   timestamp: Date;
   images?: string[];
-  type?: 'chat' | 'product_form' | 'chart';
+  type?: 'chat' | 'product_form' | 'chart' | 'order_approval';
   formPrefill?: Partial<ProductFormData>;
   chartData?: ChartData;
+  orderApprovalData?: OrderData[];
 }
 
 interface ChatPageProps {
@@ -432,6 +435,27 @@ export function ChatPage({ isDark }: ChatPageProps) {
     setMessages(prev => [...prev, { id: crypto.randomUUID(), text, sender: 'ai', timestamp: new Date() }]);
   };
 
+  const paymentStatusBadge = (status: string) => {
+    switch (status) {
+      case 'paid':
+        return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium border ${isDark ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}><BadgeCheck size={11} /> Đã thanh toán</span>;
+      case 'failed':
+        return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium border ${isDark ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-rose-50 text-rose-700 border-rose-200'}`}><AlertCircle size={11} /> Lỗi thanh toán</span>;
+      default:
+        return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium border ${isDark ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200'}`}><Clock size={11} /> Chờ thanh toán</span>;
+    }
+  };
+
+  const paymentMethodBadge = (m: string) => {
+    if (m === 'momo') return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium border ${isDark ? 'bg-pink-500/10 text-pink-400 border-pink-500/20' : 'bg-pink-50 text-pink-700 border-pink-200'}`}><CreditCard size={11} /> MoMo</span>;
+    if (m === 'vnpay') return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium border ${isDark ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-700 border-blue-200'}`}><CreditCard size={11} /> VNPay</span>;
+    return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium border ${isDark ? 'bg-slate-500/10 text-slate-300 border-slate-500/20' : 'bg-slate-100 text-slate-700 border-slate-300'}`}><CreditCard size={11} /> Nhận hàng COD</span>;
+  };
+
+  const formatPrice = (v: string) => {
+    const n = parseFloat(v);
+    return isNaN(n) ? v : n.toLocaleString('vi-VN') + '₫';
+  };
   const sendUserMessage = async () => {
     if (isSendingRef.current || isTyping) return;
     const userMessage: Message = {
@@ -461,7 +485,13 @@ export function ChatPage({ isDark }: ChatPageProps) {
       const response = await axios.post(`${import.meta.env.VITE_API_URL}/chatbot/`, formData);
       const data = response.data;
 
-      if (data.action === 'show_product_form') {
+      if (data.action === 'show_order_approval') {
+        setMessages(prev => [
+          ...prev,
+          { id: crypto.randomUUID(), text: data.answer || 'Kiểm tra đơn hàng bên dưới 👇', sender: 'ai', timestamp: new Date() },
+          { id: crypto.randomUUID(), text: '', sender: 'ai', timestamp: new Date(), type: 'order_approval', orderApprovalData: data.orders },
+        ]);
+      } else if (data.action === 'show_product_form') {
         setMessages(prev => [
           ...prev,
           { id: crypto.randomUUID(), text: data.answer || 'Điền thông tin sản phẩm vào form bên dưới 👇', sender: 'ai', timestamp: new Date() },
@@ -604,7 +634,12 @@ export function ChatPage({ isDark }: ChatPageProps) {
                         transition={{ duration: 0.25 }}
                         className={`mb-8 ${message.sender === 'user' ? 'flex justify-end' : 'w-full'}`}
                       >
-                        {message.type === 'product_form' ? (
+                        {message.type === 'order_approval' && message.orderApprovalData ? (
+                          <div className="w-full max-w-2xl">
+                            <OrderApprovalCard isDark={isDark} orders={message.orderApprovalData}
+                              onSuccess={count => addAiMessage(`✅ Đã duyệt thành công **${count} đơn hàng**! Trạng thái đã chuyển sang "Đang Vận Chuyển".`)} />
+                          </div>
+                        ) : message.type === 'product_form' ? (
                           <div className="w-full max-w-2xl">
                             <ProductFormCard isDark={isDark} prefill={message.formPrefill}
                               onSuccess={name => addAiMessage(`✅ Sản phẩm **"${name}"** đã được ${message.formPrefill?.id ? 'cập nhật' : 'tạo'} thành công và đã xuất hiện trong danh sách sản phẩm!`)} />
