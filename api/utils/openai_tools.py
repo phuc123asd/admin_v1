@@ -71,7 +71,7 @@ ADMIN_TOOLS = [
                         "description": "Sản phẩm có hỗ trợ xem AR không"
                     }
                 },
-                "required": ["name", "price", "images"]
+                "required": ["name"]
             }
         }
     },
