@@ -257,7 +257,7 @@ export function OrdersPage() {
                           <td className="px-6 py-4"><span className="font-semibold text-gray-900">{order.id}</span></td>
                           <td className="px-6 py-4"><span className="text-gray-700">{order.customer}</span></td>
                           <td className="px-6 py-4"><span className="text-gray-700">{order.product}</span></td>
-                          <td className="px-6 py-4"><span className="font-semibold text-gray-900">₫{order.amount.toLocaleString()}</span></td>
+                          <td className="px-6 py-4"><span className="font-semibold text-gray-900">${order.amount.toLocaleString()}</span></td>
                           <td className="px-6 py-4">
                             <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium border ${status.color}`}>
                               <StatusIcon size={14} />
