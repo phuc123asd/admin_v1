@@ -200,8 +200,8 @@ export function ProductsPage() {
                 >
                   <div className="relative h-48 bg-gray-100 overflow-hidden">
                     <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                    <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-lg">
-                      <span className="text-sm font-medium text-gray-700">{product.category}</span>
+                    <div className="category-badge">
+                      <span>{product.category}</span>
                     </div>
                   </div>
 

@@ -257,30 +257,30 @@ export function OrderDetailPage() {
 
                   return (
                     <>
-                <img
-                  src={imageUrl}
-                  alt={productName}
-                  className="w-20 h-20 rounded-xl object-cover border border-gray-200 bg-gray-50"
-                />
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">
-                    {productName}
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Mã SP: {productId}
-                  </p>
-                  <div className="mt-2 text-sm text-gray-700">
-                    <span>Số lượng: <strong>{item.quantity}</strong></span>
-                    <span className="mx-2 text-gray-300">|</span>
-                    <span>Đơn giá: <strong>₫{item.price.toLocaleString()}</strong></span>
-                  </div>
-                </div>
+                      <img
+                        src={imageUrl}
+                        alt={productName}
+                        className="w-20 h-20 rounded-xl object-cover border border-gray-200 bg-gray-50"
+                      />
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">
+                          {productName}
+                        </p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Mã SP: {productId}
+                        </p>
+                        <div className="mt-2 text-sm text-gray-700">
+                          <span>Số lượng: <strong>{item.quantity}</strong></span>
+                          <span className="mx-2 text-gray-300">|</span>
+                          <span>Đơn giá: <strong>₫{item.price.toLocaleString()}</strong></span>
+                        </div>
+                      </div>
                     </>
                   );
                 })()}
                 <div className="text-right">
                   <p className="text-sm text-gray-500">Thành tiền</p>
-                  <p className="font-semibold text-gray-900">₫{(item.price * item.quantity).toLocaleString()}</p>
+                  <p className="font-semibold text-gray-900">${(item.price * item.quantity).toLocaleString()}</p>
                 </div>
               </div>
             ))}
@@ -288,7 +288,7 @@ export function OrderDetailPage() {
           <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
             <div className="text-right">
               <p className="text-sm text-gray-600">Tổng thanh toán</p>
-              <p className="text-2xl font-bold text-gray-900">₫{order.total_price.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">${order.total_price.toLocaleString()}</p>
             </div>
           </div>
         </motion.div>

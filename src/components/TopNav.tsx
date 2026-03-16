@@ -26,7 +26,7 @@ export function TopNav({ isDark, onToggleTheme }: TopNavProps) {
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <h1 className={`text-xl font-bold ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>Admin Dashboard</h1>
+              <h1 className={`text-xl font-light ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>Admin Dashboard</h1>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <Link

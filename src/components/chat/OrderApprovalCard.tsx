@@ -107,10 +107,10 @@ export function OrderApprovalCard({ isDark, orders, onSuccess }: {
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-      className={`rounded-2xl border shadow-lg overflow-hidden ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
+      className={`rounded-2xl border shadow-xl overflow-hidden active-card-transition ${isDark ? 'bg-slate-900/90 border-slate-800 backdrop-blur-md' : 'bg-white border-slate-200'}`}>
 
       {/* Header */}
-      <div className="px-5 py-4 flex items-center justify-between border-b bg-gradient-to-r from-amber-600/10 to-orange-600/10" style={{ borderBottomStyle: 'dashed', borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+      <div className={`px-5 py-4 flex items-center justify-between border-b ${isDark ? 'bg-white/5' : 'bg-gradient-to-r from-amber-600/10 to-orange-600/10'}`} style={{ borderBottomStyle: 'dashed', borderColor: isDark ? '#334155' : '#e2e8f0' }}>
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-sm">
             <ShoppingCart size={15} className="text-white" />

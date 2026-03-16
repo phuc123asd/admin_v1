@@ -71,7 +71,7 @@ export function ChatChart({ data, isDark }: ChatChartProps) {
             </LineChart>
           </ResponsiveContainer>
         );
-      case 'pie':
+      case 'pie': {
         // For pie chart, usually there's one main dataKey to display values
         const primaryDataKey = dataKeys[0];
         return (
@@ -99,6 +99,7 @@ export function ChatChart({ data, isDark }: ChatChartProps) {
             </PieChart>
           </ResponsiveContainer>
         );
+      }
       default:
         return <div className="p-4 text-center text-red-500">Unsupported chart type</div>;
     }
