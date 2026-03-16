@@ -3,6 +3,7 @@ from api.models.productdetail import ProductDetail
 from mongoengine.errors import ValidationError, NotUniqueError
 from bson.errors import InvalidId
 import cloudinary.uploader
+import json
 def get_public_id_from_cloudinary_url(url: str):
     """
     Trích public_id từ URL Cloudinary chuẩn.
@@ -75,15 +76,36 @@ def add_product(payload):
         )
         product.save()
         
-        # 4. Tạo và lưu đối tượng ProductDetail
+        # 4. Đảm bảo specifications là dict và features là list (đề phòng GPT parse sai)
+        features = payload.get('features', [])
+        if isinstance(features, str):
+            try:
+                features = json.loads(features)
+            except:
+                features = [f.strip() for f in features.split(',')] if features else []
+        
+        specifications = payload.get('specifications', {})
+        if isinstance(specifications, str):
+            try:
+                specifications = json.loads(specifications)
+            except:
+                # Nếu là chuỗi thường dạng "Key: Value, Key: Value"
+                specifications = {}
+                parts = payload.get('specifications', '').split(',')
+                for part in parts:
+                    if ':' in part:
+                        k, v = part.split(':', 1)
+                        specifications[k.strip()] = v.strip()
+
+        # 5. Tạo và lưu đối tượng ProductDetail
         product_detail = ProductDetail(
             product=product,
             images=image_urls,
             rating=payload.get('rating', 4.5),
             reviewCount=payload.get('reviewCount', 0),
             description=payload.get('description'),
-            features=payload.get('features', []),
-            specifications=payload.get('specifications', {}),
+            features=features,
+            specifications=specifications,
             inStock=payload.get('inStock', True),
             hasARView=payload.get('hasARView', False)
         )
@@ -254,11 +276,25 @@ def update_product(payload):
             updated_fields.append("mô tả")
             
         if 'features' in payload:
-            product_detail.features = payload['features']
+            features = payload['features']
+            if isinstance(features, str):
+                try: features = json.loads(features)
+                except: features = [f.strip() for f in features.split(',')]
+            product_detail.features = features
             updated_fields.append("tính năng")
             
         if 'specifications' in payload:
-            product_detail.specifications = payload['specifications']
+            specifications = payload['specifications']
+            if isinstance(specifications, str):
+                try: specifications = json.loads(specifications)
+                except:
+                    specifications = {}
+                    parts = payload['specifications'].split(',')
+                    for part in parts:
+                        if ':' in part:
+                            k, v = part.split(':', 1)
+                            specifications[k.strip()] = v.strip()
+            product_detail.specifications = specifications
             updated_fields.append("thông số kỹ thuật")
             
         if 'inStock' in payload:
