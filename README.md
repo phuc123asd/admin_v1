@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="demo/banner.png" width="900"/>
-</p>
-
 <h1 align="center">🚀 Admin V1 — Smart AI Admin Dashboard</h1>
 
 <p align="center">
