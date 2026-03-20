@@ -8,12 +8,22 @@ const apiClient = axios.create({
 });
 
 export const chatService = {
-  sendMessage: async (question: string, role: string, chatHistory: ChatHistoryItem[], images: File[] = [], isFormSubmit = false) => {
+  sendMessage: async (
+    question: string,
+    role: string,
+    chatHistory: ChatHistoryItem[],
+    images: File[] = [],
+    isFormSubmit = false,
+    formPayload?: Record<string, unknown>
+  ) => {
     const formData = new FormData();
     formData.append('question', question);
     formData.append('role', role);
     formData.append('chat_history', JSON.stringify(chatHistory));
     formData.append('is_form_submit', String(isFormSubmit));
+    if (formPayload) {
+      formData.append('form_payload', JSON.stringify(formPayload));
+    }
     images.forEach(f => formData.append('images', f));
 
     const response = await apiClient.post<ChatbotResponse>('/chatbot/', formData);

@@ -137,39 +137,46 @@ export function ProductFormCard({ isDark, prefill, onSuccess }: ProductFormCardP
     setError('');
     setIsSubmitting(true);
     try {
-      let question = '';
-      const keptImagesStr = [];
-      if (form.mainImage) keptImagesStr.push(form.mainImage);
-      if (form.galleryImages && form.galleryImages.length > 0) keptImagesStr.push(...form.galleryImages);
+      const retainedImages: string[] = [];
+      if (form.mainImage) retainedImages.push(form.mainImage);
+      if (form.galleryImages && form.galleryImages.length > 0) retainedImages.push(...form.galleryImages);
+
+      const normalizedFeatures = form.features.map(f => f.trim()).filter(Boolean);
+      const normalizedSpecs = form.specifications
+        .filter(s => s.key.trim())
+        .reduce<Record<string, string>>((acc, s) => {
+          acc[s.key.trim()] = (s.value || '').trim();
+          return acc;
+        }, {});
+
+      const payload: Record<string, unknown> = {
+        name: form.name.trim(),
+        price: Number(form.price),
+        originalPrice: Number(form.originalPrice || form.price),
+        category: form.category.trim(),
+        brand: form.brand.trim(),
+        description: form.description.trim(),
+        features: normalizedFeatures,
+        specifications: normalizedSpecs,
+        isNew: form.isNew,
+        inStock: form.inStock,
+      };
 
       if (isUpdate) {
-        question = `CẬP NHẬT sản phẩm (ID: ${form.id}): 
-        - Tên (name): "${form.name}"
-        - Giá bán (price): ${form.price}
-        - Giá gốc (originalPrice): ${form.originalPrice || form.price}
-        - Danh mục (category): "${form.category}"
-        - Thương hiệu (brand): "${form.brand}"
-        - Mô tả (description): "${form.description}"
-        - Tính năng nổi bật (features): [${form.features.filter(f => f.trim()).map(f => `"${f}"`).join(', ')}]
-        - Thông số kỹ thuật (specifications): {${form.specifications.filter(s => s.key.trim()).map(s => `"${s.key}": "${s.value}"`).join(', ')}}
-        - Sản phẩm mới (isNew): ${form.isNew}
-        - Còn hàng (inStock): ${form.inStock}
-        - Giữ lại các ảnh cũ: ${keptImagesStr.join(', ')}`;
-      } else {
-        question = `THÊM sản phẩm mới:
-        - Tên (name): "${form.name}"
-        - Giá bán (price): ${form.price}
-        - Giá gốc (originalPrice): ${form.originalPrice || form.price}
-        - Danh mục (category): "${form.category}"
-        - Thương hiệu (brand): "${form.brand}"
-        - Mô tả (description): "${form.description}"
-        - Tính năng nổi bật (features): [${form.features.filter(f => f.trim()).map(f => `"${f}"`).join(', ')}]
-        - Thông số kỹ thuật (specifications): {${form.specifications.filter(s => s.key.trim()).map(s => `"${s.key}": "${s.value}"`).join(', ')}}
-        - Sản phẩm mới (isNew): ${form.isNew}
-        - Còn hàng (inStock): ${form.inStock}`;
+        payload.product_id = form.id;
+        payload.images = retainedImages;
       }
 
-      const data = await chatService.sendMessage(question, 'admin', [], imageFiles, true);
+      const formPayload = {
+        action: isUpdate ? 'update_product' : 'add_product',
+        payload,
+      };
+
+      const question = isUpdate
+        ? `Cập nhật sản phẩm ${form.name}`
+        : `Thêm sản phẩm ${form.name}`;
+
+      const data = await chatService.sendMessage(question, 'admin', [], imageFiles, true, formPayload);
 
       if (data.success && data.action !== 'show_product_form') {
         setSubmitted(true);
