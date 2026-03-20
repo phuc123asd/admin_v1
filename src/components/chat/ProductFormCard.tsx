@@ -36,12 +36,15 @@ export function ProductFormCard({ isDark, prefill, onSuccess }: ProductFormCardP
 
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [mainImageFile, setMainImageFile] = useState<File | null>(null);
+  const [mainImagePreview, setMainImagePreview] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
   const [isAiSuggesting, setIsAiSuggesting] = useState(false);
   const [aiHighlight, setAiHighlight] = useState(false);
-  const imgInputRef = useRef<HTMLInputElement>(null);
+  const mainImgInputRef = useRef<HTMLInputElement>(null);
+  const galleryImgInputRef = useRef<HTMLInputElement>(null);
 
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
@@ -112,6 +115,17 @@ export function ProductFormCard({ isDark, prefill, onSuccess }: ProductFormCardP
   const addSpec = () => set('specifications', [...form.specifications, { key: '', value: '' }]);
   const removeSpec = (idx: number) => set('specifications', form.specifications.filter((_, i) => i !== idx));
 
+  const handleMainImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (mainImagePreview) {
+      URL.revokeObjectURL(mainImagePreview);
+    }
+    setMainImageFile(file);
+    setMainImagePreview(URL.createObjectURL(file));
+    set('mainImage', '');
+  };
+
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     const files = Array.from(e.target.files);
@@ -123,6 +137,15 @@ export function ProductFormCard({ isDark, prefill, onSuccess }: ProductFormCardP
     setImagePreviews(prev => prev.filter((_, i) => i !== idx));
   };
 
+  const clearMainImage = () => {
+    if (mainImagePreview) {
+      URL.revokeObjectURL(mainImagePreview);
+    }
+    setMainImageFile(null);
+    setMainImagePreview('');
+    set('mainImage', '');
+  };
+
   const handleSubmit = async () => {
     if (!form.name.trim()) { setError('Vui lòng nhập tên sản phẩm'); return; }
     if (!form.price) { setError('Vui lòng nhập giá bán'); return; }
@@ -130,16 +153,17 @@ export function ProductFormCard({ isDark, prefill, onSuccess }: ProductFormCardP
     if (!form.brand.trim()) { setError('Vui lòng nhập thương hiệu'); return; }
 
     const isUpdate = !!form.id;
-    if (!isUpdate && imageFiles.length === 0) {
-      setError('Vui lòng thêm ít nhất 1 ảnh sản phẩm'); return;
+    const hasMainImage = !!(form.mainImage || mainImagePreview || mainImageFile);
+    if (!hasMainImage) {
+      setError('Vui lòng thêm ảnh đại diện cho sản phẩm'); return;
     }
 
     setError('');
     setIsSubmitting(true);
     try {
-      const retainedImages: string[] = [];
-      if (form.mainImage) retainedImages.push(form.mainImage);
-      if (form.galleryImages && form.galleryImages.length > 0) retainedImages.push(...form.galleryImages);
+      const retainedGalleryImages: string[] = form.galleryImages && form.galleryImages.length > 0
+        ? [...form.galleryImages]
+        : [];
 
       const normalizedFeatures = form.features.map(f => f.trim()).filter(Boolean);
       const normalizedSpecs = form.specifications
@@ -164,7 +188,9 @@ export function ProductFormCard({ isDark, prefill, onSuccess }: ProductFormCardP
 
       if (isUpdate) {
         payload.product_id = form.id;
-        payload.images = retainedImages;
+        payload.mainImage = form.mainImage || '';
+        payload.galleryImages = retainedGalleryImages;
+        payload.mainImageUpload = !!mainImageFile;
       }
 
       const formPayload = {
@@ -176,7 +202,11 @@ export function ProductFormCard({ isDark, prefill, onSuccess }: ProductFormCardP
         ? `Cập nhật sản phẩm ${form.name}`
         : `Thêm sản phẩm ${form.name}`;
 
-      const data = await chatService.sendMessage(question, 'admin', [], imageFiles, true, formPayload);
+      const uploadFiles: File[] = [];
+      if (mainImageFile) uploadFiles.push(mainImageFile);
+      uploadFiles.push(...imageFiles);
+
+      const data = await chatService.sendMessage(question, 'admin', [], uploadFiles, true, formPayload);
 
       if (data.success && data.action !== 'show_product_form') {
         setSubmitted(true);
@@ -389,23 +419,54 @@ export function ProductFormCard({ isDark, prefill, onSuccess }: ProductFormCardP
         <div>
           <label className={lbl}>Hình ảnh sản phẩm {!form.id && <span className="text-red-400">*</span>}</label>
           <div className="flex flex-col gap-4">
-            {form.mainImage && (
-              <div>
-                <p className={`text-xs mb-1.5 font-medium ${isDark ? 'text-indigo-300' : 'text-indigo-600'}`}>Ảnh đại diện hiện tại:</p>
-                <div className="relative group inline-block">
-                  <img src={form.mainImage} alt="Main" className="w-20 h-20 rounded-xl object-cover border-2 border-indigo-400/50 shadow-sm" />
-                  <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center rounded-xl opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-white text-center p-1 cursor-pointer"
-                    onClick={() => set('mainImage', '')}>
-                    <Trash2 size={14} className="mb-1 text-red-400" />
-                    <span>Xoá ảnh</span>
+            <div>
+              <p className={`text-xs mb-1.5 font-medium ${isDark ? 'text-indigo-300' : 'text-indigo-600'}`}>Ảnh đại diện (1 ảnh)</p>
+              <div className="flex flex-wrap gap-2 items-start">
+                {(mainImagePreview || form.mainImage) ? (
+                  <div className="relative group inline-block">
+                    <img src={mainImagePreview || form.mainImage} alt="Main" className="w-20 h-20 rounded-xl object-cover border-2 border-indigo-400/50 shadow-sm" />
+                    <div
+                      className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center rounded-xl opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-white text-center p-1 cursor-pointer"
+                      onClick={clearMainImage}
+                    >
+                      <Trash2 size={14} className="mb-1 text-red-400" />
+                      <span>Xoá ảnh</span>
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
+                ) : (
+                  <div className={`w-20 h-20 rounded-xl border-2 border-dashed flex items-center justify-center text-[10px] text-center px-1 ${isDark ? 'border-red-500/70 text-red-300 bg-red-900/10' : 'border-red-300 text-red-500 bg-red-50'}`}>
+                    Chưa có ảnh đại diện
+                  </div>
+                )}
 
-            {form.galleryImages && form.galleryImages.length > 0 && (
+                <button
+                  onClick={() => mainImgInputRef.current?.click()}
+                  className={`w-20 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 text-xs transition-colors ${
+                    isDark
+                      ? 'border-slate-600 text-slate-400 hover:border-cyan-500 hover:text-cyan-400'
+                      : 'border-slate-300 text-gray-400 hover:border-blue-400 hover:text-blue-500'
+                  }`}
+                >
+                  <Plus size={16} />
+                  <span>Đổi ảnh</span>
+                </button>
+                <input
+                  ref={mainImgInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleMainImageSelect}
+                />
+              </div>
+              {!form.mainImage && !mainImagePreview && (
+                <p className="mt-1 text-xs text-red-500">Vui lòng thêm ảnh đại diện trước khi lưu.</p>
+              )}
+            </div>
+
+            <div>
+              <p className={`text-xs mb-1.5 font-medium ${isDark ? 'text-teal-300' : 'text-teal-600'}`}>Danh sách ảnh chi tiết</p>
+              {form.galleryImages && form.galleryImages.length > 0 && (
               <div>
-                <p className={`text-xs mb-1.5 font-medium ${isDark ? 'text-teal-300' : 'text-teal-600'}`}>Ảnh thư viện hiện tại:</p>
                 <div className="flex flex-wrap gap-2">
                   {form.galleryImages.map((src, i) => (
                     <div key={`gallery-${i}`} className="relative group inline-block">
@@ -419,10 +480,8 @@ export function ProductFormCard({ isDark, prefill, onSuccess }: ProductFormCardP
                   ))}
                 </div>
               </div>
-            )}
+              )}
 
-            <div>
-              <p className={`text-xs mb-1.5 font-medium ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Ảnh mới thêm (sẽ được tải lên):</p>
               <div className="flex flex-wrap gap-2 items-start">
                 {imagePreviews.map((src, i) => (
                   <div key={i} className="relative group">
@@ -433,13 +492,13 @@ export function ProductFormCard({ isDark, prefill, onSuccess }: ProductFormCardP
                     </button>
                   </div>
                 ))}
-                <button onClick={() => imgInputRef.current?.click()}
+                <button onClick={() => galleryImgInputRef.current?.click()}
                   className={`w-16 h-16 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 text-xs transition-colors ${isDark ? 'border-slate-600 text-slate-400 hover:border-cyan-500 hover:text-cyan-400' : 'border-slate-300 text-gray-400 hover:border-blue-400 hover:text-blue-500'
                     }`}>
                   <Plus size={16} />
                   <span>Thêm ảnh</span>
                 </button>
-                <input ref={imgInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
+                <input ref={galleryImgInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
               </div>
             </div>
           </div>
